@@ -1,3 +1,22 @@
+@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg-1: #fdf2f8;
+  --bg-2: #ede9fe;
+  --bg-3: #e0f2fe;
+  --card: rgba(255, 255, 255, 0.75);
+  --card-border: rgba(255, 255, 255, 0.9);
+  --primary: #a78bfa;
+  --primary-soft: #c4b5fd;
+  --primary-deep: #8b73e0;
+  --accent: #f9a8d4;
+  --text: #4b4b63;
+  --text-soft: #9aa0b5;
+  --field: #f6f4fb;
+  --shadow: 0 18px 45px rgba(167, 139, 250, 0.22);
+  --radius: 22px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,99 +24,127 @@
 }
 
 body {
-  font-family: "Segoe UI", system-ui, sans-serif;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  font-family: "Quicksand", system-ui, sans-serif;
+  background: linear-gradient(135deg, var(--bg-1), var(--bg-2) 50%, var(--bg-3));
+  background-attachment: fixed;
   min-height: 100vh;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 40px 16px;
+  padding: 48px 16px;
+  color: var(--text);
 }
 
 .app {
-  background: #fff;
+  background: var(--card);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
   width: 100%;
-  max-width: 460px;
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  padding: 28px;
+  max-width: 470px;
+  border-radius: var(--radius);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow);
+  padding: 32px;
 }
 
 h1 {
   text-align: center;
-  font-size: 1.6rem;
-  color: #333;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.2px;
   margin-bottom: 22px;
 }
 
 /* --- Giriş / Kayıt ekranı --- */
 .subtitle {
   text-align: center;
-  color: #888;
-  margin: -10px 0 22px;
+  color: var(--text-soft);
+  margin: -12px 0 24px;
   font-size: 0.95rem;
+  font-weight: 500;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .auth-form input {
-  padding: 12px 14px;
-  border: 2px solid #e3e3e3;
-  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1.5px solid transparent;
+  background: var(--field);
+  border-radius: 14px;
   font-size: 1rem;
+  font-family: inherit;
+  color: var(--text);
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+
+.auth-form input::placeholder {
+  color: var(--text-soft);
 }
 
 .auth-form input:focus {
-  border-color: #764ba2;
+  border-color: var(--primary-soft);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.15);
 }
 
 .auth-form button {
-  padding: 12px;
+  padding: 14px;
   border: none;
-  border-radius: 10px;
-  background: #764ba2;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   color: #fff;
   font-size: 1rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: background 0.2s;
+  box-shadow: 0 8px 20px rgba(167, 139, 250, 0.35);
+  transition: transform 0.18s, box-shadow 0.25s, opacity 0.2s;
 }
 
 .auth-form button:hover {
-  background: #5d3a85;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(167, 139, 250, 0.45);
+}
+
+.auth-form button:active {
+  transform: translateY(0);
 }
 
 .auth-form button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 .auth-error {
-  color: #e74c3c;
+  color: #ec6f9e;
   text-align: center;
   font-size: 0.9rem;
+  font-weight: 500;
   min-height: 1.2em;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .auth-switch {
   text-align: center;
-  color: #888;
+  color: var(--text-soft);
   font-size: 0.9rem;
-  margin-top: 8px;
+  font-weight: 500;
+  margin-top: 10px;
 }
 
 .link-btn {
   border: none;
   background: transparent;
-  color: #764ba2;
-  font-weight: 600;
+  color: var(--primary-deep);
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
   font-size: 0.9rem;
 }
@@ -119,159 +166,230 @@ h1 {
 }
 
 .logout-btn {
-  border: 1px solid #e3e3e3;
-  background: #fff;
-  color: #764ba2;
-  padding: 6px 12px;
-  border-radius: 8px;
+  border: 1.5px solid var(--primary-soft);
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--primary-deep);
+  padding: 7px 14px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 0.85rem;
-  transition: background 0.2s;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background 0.2s, transform 0.15s;
 }
 
 .logout-btn:hover {
-  background: #f3eefb;
+  background: #fff;
+  transform: translateY(-1px);
 }
 
 .user-email {
   text-align: center;
-  color: #aaa;
+  color: var(--text-soft);
   font-size: 0.82rem;
-  margin-bottom: 18px;
+  font-weight: 500;
+  margin-bottom: 20px;
   word-break: break-all;
 }
 
+/* --- Görev ekleme --- */
 .todo-form {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 18px;
 }
 
 .todo-form input {
   flex: 1;
-  padding: 12px 14px;
-  border: 2px solid #e3e3e3;
-  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1.5px solid transparent;
+  background: var(--field);
+  border-radius: 14px;
   font-size: 1rem;
+  font-family: inherit;
+  color: var(--text);
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+
+.todo-form input::placeholder {
+  color: var(--text-soft);
 }
 
 .todo-form input:focus {
-  border-color: #764ba2;
+  border-color: var(--primary-soft);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.15);
 }
 
 .todo-form button {
-  padding: 0 20px;
+  padding: 0 22px;
   border: none;
-  border-radius: 10px;
-  background: #764ba2;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   color: #fff;
   font-size: 1rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: background 0.2s;
+  box-shadow: 0 8px 18px rgba(167, 139, 250, 0.32);
+  transition: transform 0.18s, box-shadow 0.25s;
 }
 
 .todo-form button:hover {
-  background: #5d3a85;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(167, 139, 250, 0.42);
 }
 
+.todo-form button:active {
+  transform: translateY(0);
+}
+
+/* --- Filtreler --- */
 .filters {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  background: var(--field);
+  padding: 6px;
+  border-radius: 14px;
 }
 
 .filter-btn {
   flex: 1;
-  padding: 8px;
+  padding: 9px;
   border: none;
-  border-radius: 8px;
-  background: #f0f0f3;
-  color: #555;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-soft);
   cursor: pointer;
   font-size: 0.9rem;
-  transition: all 0.2s;
+  font-weight: 600;
+  font-family: inherit;
+  transition: all 0.25s;
+}
+
+.filter-btn:hover {
+  color: var(--primary-deep);
 }
 
 .filter-btn.active {
-  background: #764ba2;
-  color: #fff;
+  background: #fff;
+  color: var(--primary-deep);
+  box-shadow: 0 4px 12px rgba(167, 139, 250, 0.22);
 }
 
+/* --- Liste --- */
 .todo-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .todo-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: #f7f7fa;
-  border-radius: 10px;
-  animation: fadeIn 0.2s ease;
+  gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  transition: transform 0.18s, box-shadow 0.25s, background 0.25s;
+  animation: fadeIn 0.28s ease;
+}
+
+.todo-item:hover {
+  background: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(167, 139, 250, 0.16);
 }
 
 .todo-item input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--primary-soft);
+  border-radius: 8px;
   cursor: pointer;
-  accent-color: #764ba2;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.todo-item input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border-color: transparent;
+}
+
+.todo-item input[type="checkbox"]:checked::after {
+  content: "✓";
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .todo-item span {
   flex: 1;
-  color: #333;
+  color: var(--text);
+  font-weight: 500;
   word-break: break-word;
+  transition: color 0.2s;
 }
 
 .todo-item.done span {
   text-decoration: line-through;
-  color: #aaa;
+  color: var(--text-soft);
 }
 
 .todo-item .delete {
   border: none;
   background: transparent;
-  color: #e74c3c;
-  font-size: 1.2rem;
+  color: var(--text-soft);
+  font-size: 1.3rem;
   cursor: pointer;
   line-height: 1;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background 0.2s;
+  padding: 4px 9px;
+  border-radius: 10px;
+  transition: background 0.2s, color 0.2s;
 }
 
 .todo-item .delete:hover {
-  background: #fde8e6;
+  background: #ffe4ef;
+  color: #ec6f9e;
 }
 
 .empty {
   text-align: center;
-  color: #bbb;
-  padding: 24px 0;
+  color: var(--text-soft);
+  font-weight: 500;
+  padding: 28px 0;
 }
 
+/* --- Alt bilgi --- */
 .footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 18px;
+  margin-top: 20px;
   font-size: 0.85rem;
-  color: #888;
+  font-weight: 500;
+  color: var(--text-soft);
 }
 
 .clear-btn {
   border: none;
   background: transparent;
-  color: #764ba2;
+  color: var(--primary-deep);
   cursor: pointer;
   font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
 }
 
 .clear-btn:hover {
@@ -281,7 +399,7 @@ h1 {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
