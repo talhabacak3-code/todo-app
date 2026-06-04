@@ -7,8 +7,45 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app">
+  <!-- GİRİŞ / KAYIT EKRANI -->
+  <div class="app auth-screen" id="auth-screen" hidden>
     <h1>📋 Yapılacaklar</h1>
+    <p class="subtitle">Devam etmek için giriş yap veya kayıt ol</p>
+
+    <form id="auth-form" class="auth-form">
+      <input
+        type="email"
+        id="auth-email"
+        placeholder="E-posta"
+        autocomplete="email"
+        required
+      />
+      <input
+        type="password"
+        id="auth-password"
+        placeholder="Şifre (en az 6 karakter)"
+        autocomplete="current-password"
+        minlength="6"
+        required
+      />
+      <button type="submit" id="auth-submit">Giriş Yap</button>
+    </form>
+
+    <p class="auth-error" id="auth-error"></p>
+
+    <p class="auth-switch">
+      <span id="auth-switch-text">Hesabın yok mu?</span>
+      <button type="button" id="auth-switch-btn" class="link-btn">Kayıt ol</button>
+    </p>
+  </div>
+
+  <!-- UYGULAMA -->
+  <div class="app" id="app-screen" hidden>
+    <div class="topbar">
+      <h1>📋 Yapılacaklar</h1>
+      <button id="logout-btn" class="logout-btn">Çıkış</button>
+    </div>
+    <p class="user-email" id="user-email"></p>
 
     <form id="todo-form" class="todo-form">
       <input

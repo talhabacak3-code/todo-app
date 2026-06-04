@@ -30,6 +30,117 @@ h1 {
   margin-bottom: 22px;
 }
 
+/* --- Giriş / Kayıt ekranı --- */
+.subtitle {
+  text-align: center;
+  color: #888;
+  margin: -10px 0 22px;
+  font-size: 0.95rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form input {
+  padding: 12px 14px;
+  border: 2px solid #e3e3e3;
+  border-radius: 10px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.auth-form input:focus {
+  border-color: #764ba2;
+}
+
+.auth-form button {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #764ba2;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.auth-form button:hover {
+  background: #5d3a85;
+}
+
+.auth-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  color: #e74c3c;
+  text-align: center;
+  font-size: 0.9rem;
+  min-height: 1.2em;
+  margin-top: 12px;
+}
+
+.auth-switch {
+  text-align: center;
+  color: #888;
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.link-btn {
+  border: none;
+  background: transparent;
+  color: #764ba2;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* --- Üst bar --- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.topbar h1 {
+  margin-bottom: 0;
+}
+
+.logout-btn {
+  border: 1px solid #e3e3e3;
+  background: #fff;
+  color: #764ba2;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: #f3eefb;
+}
+
+.user-email {
+  text-align: center;
+  color: #aaa;
+  font-size: 0.82rem;
+  margin-bottom: 18px;
+  word-break: break-all;
+}
+
 .todo-form {
   display: flex;
   gap: 8px;
