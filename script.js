@@ -607,9 +607,9 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeShe
 // Süreler dakika cinsinden. longEvery: kaç odaktan sonra uzun mola (0 = uzun mola yok).
 const TECHNIQUES = {
   pomodoro:  { icon: "🍅", name: "🍅 Pomodoro",        focus: 25, short: 5,  long: 15, longEvery: 4, desc: "25 dk çalış, 5 dk mola. 4 turda bir 15 dk uzun mola." },
-  "5217":    { icon: "⏱️", name: "⏱️ 52 / 17",          focus: 52, short: 17, long: 17, longEvery: 0, desc: "52 dk derin çalışma, 17 dk mola (DeskTime araştırması)." },
+  t5217:     { icon: "⏱️", name: "⏱️ 52 / 17",          focus: 52, short: 17, long: 17, longEvery: 0, desc: "52 dk derin çalışma, 17 dk mola (DeskTime araştırması)." },
+  t5010:     { icon: "📚", name: "📚 50 / 10",          focus: 50, short: 10, long: 30, longEvery: 2, desc: "50 dk çalış, 10 dk mola. 2 turda bir 30 dk uzun mola." },
   ultradian: { icon: "🧠", name: "🧠 90 / 20 Ultradyen", focus: 90, short: 20, long: 30, longEvery: 0, desc: "90 dk yoğun odak, 20 dk dinlenme (ultradyen ritim / derin çalışma)." },
-  "5010":    { icon: "📚", name: "📚 50 / 10",          focus: 50, short: 10, long: 30, longEvery: 2, desc: "50 dk çalış, 10 dk mola. 2 turda bir 30 dk uzun mola." },
   flowtime:  { icon: "🌊", name: "🌊 Flowtime",          focus: 0,  short: 5,  long: 15, longEvery: 0, flow: true, desc: "Sayaç ileri sayar; doğal olarak yorulunca molaya geç." },
 };
 const POMO_KEY = "planla_pomo";
@@ -642,13 +642,16 @@ function updatePill() {
 }
 
 function pomoBuildTech() {
-  const sel = $("pomo-tech");
-  sel.innerHTML = "";
+  const el = $("pomo-tech");
+  el.innerHTML = "";
   Object.entries(TECHNIQUES).forEach(([k, t]) => {
-    const o = document.createElement("option");
-    o.value = k; o.textContent = t.name; sel.appendChild(o);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tech-opt" + (k === pomoTech ? " active" : "");
+    b.textContent = t.name;
+    b.onclick = () => pomoSetTech(k);
+    el.appendChild(b);
   });
-  sel.value = pomoTech;
 }
 
 function pomoRender() {
@@ -742,7 +745,6 @@ function closePomo() { $("pomo-backdrop").classList.add("hidden"); $("pomo").cla
 $("pomo-btn").onclick = openPomo;
 $("pomo-close").onclick = closePomo;
 $("pomo-backdrop").onclick = closePomo;
-$("pomo-tech").onchange = (e) => pomoSetTech(e.target.value);
 $("pomo-toggle").onclick = () => {
   // Flowtime odağında, ileri sayıyorken "molaya geç" daveti: yeterince çalışıldıysa seans say
   pomoTimer ? pomoStop() : pomoStart();
