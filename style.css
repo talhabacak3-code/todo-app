@@ -165,6 +165,29 @@ body {
 .day-pill.today .dnum { color: var(--primary-deep); }
 .day-pill.active.today .dnum { color: #fff; }
 
+/* ===== GÜNLÜK RUTİNLER ===== */
+.routines-card {
+  background: linear-gradient(180deg, rgba(253,230,138,0.22), rgba(186,230,253,0.16));
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 14px 16px; margin-bottom: 4px; box-shadow: var(--shadow-sm);
+}
+[data-theme="dark"] .routines-card { background: linear-gradient(180deg, rgba(251,191,36,0.09), rgba(56,189,248,0.08)); }
+.routines-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
+.routines-head h3 { font-size: 0.98rem; font-weight: 700; }
+.routines-edit {
+  border: none; background: var(--surface-soft); color: var(--primary-deep);
+  font-family: inherit; font-weight: 600; font-size: 0.78rem; padding: 6px 13px;
+  border-radius: 10px; cursor: pointer; transition: transform 0.15s;
+}
+.routines-edit:active { transform: scale(0.94); }
+.routines-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.routine-item { display: flex; align-items: center; gap: 12px; }
+.routine-item span { font-weight: 600; font-size: 0.92rem; word-break: break-word; }
+.routine-item.done span { text-decoration: line-through; color: var(--text-soft); }
+.routines-empty { font-size: 0.85rem; color: var(--text-soft); font-weight: 500; line-height: 1.5; }
+.routines-empty button { border: none; background: transparent; color: var(--primary-deep); font-family: inherit; font-weight: 700; cursor: pointer; padding: 0; font-size: 0.85rem; }
+.sheet-sub { font-size: 0.82rem; color: var(--text-soft); font-weight: 500; margin: -8px 0 4px; line-height: 1.45; }
+
 /* ===== CATEGORY FILTER ===== */
 .cat-filter { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 0 14px; }
 .cat-chip {

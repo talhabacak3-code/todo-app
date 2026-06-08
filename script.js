@@ -99,6 +99,17 @@ let formNoteColor = NOTE_COLORS[0];
 try { notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || []; } catch { notes = []; }
 function saveNotes() { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); }
 
+/* ---------- Günlük Rutinler ---------- */
+const ROUTINES_KEY = "planla_routines";
+const ROUTINE_STATE_KEY = "planla_routine_state";
+let routines = [];
+let routineState = {};
+try { routines = JSON.parse(localStorage.getItem(ROUTINES_KEY)) || []; } catch { routines = []; }
+try { routineState = JSON.parse(localStorage.getItem(ROUTINE_STATE_KEY)) || {}; } catch { routineState = {}; }
+function saveRoutines() { localStorage.setItem(ROUTINES_KEY, JSON.stringify(routines)); }
+function saveRoutineState() { localStorage.setItem(ROUTINE_STATE_KEY, JSON.stringify(routineState)); }
+const isRoutineDone = (dk, id) => !!(routineState[dk] && routineState[dk][id]);
+
 /* ---------- Ağaç Bahçesi (oyun) ---------- */
 const GARDEN_KEY = "planla_garden";
 const STAGES = [
@@ -305,7 +316,7 @@ function renderDay() {
   const label = prettyDate(selectedKey);
   dayHeading.textContent = label;
   if (view === "day") { headerTitle.textContent = label; headerSub.textContent = "Hadi planını yapalım"; }
-  renderDayStrip(); renderTasks(); renderProgress();
+  renderDayStrip(); renderRoutines(); renderTasks(); renderProgress();
 }
 
 /* =================== HAFTA GÖRÜNÜMÜ =================== */
@@ -518,11 +529,12 @@ function openSheet(task, occDate) {
     $("skip-btn").classList.add("hidden");
   }
   $("note-sheet").classList.add("hidden");
+  $("routine-sheet").classList.add("hidden");
   backdrop.classList.remove("hidden");
   sheet.classList.remove("hidden");
   setTimeout(() => $("f-text").focus(), 250);
 }
-function closeSheet() { backdrop.classList.add("hidden"); sheet.classList.add("hidden"); $("note-sheet").classList.add("hidden"); }
+function closeSheet() { backdrop.classList.add("hidden"); sheet.classList.add("hidden"); $("note-sheet").classList.add("hidden"); $("routine-sheet").classList.add("hidden"); }
 
 function refreshCurrent() {
   if (view === "week") renderWeek();
@@ -596,6 +608,7 @@ $("skip-btn").addEventListener("click", () => {
 function todayDoneCount() {
   const tk = todayKey(); let c = 0;
   todos.forEach((t) => { if (t.state && t.state[tk] && t.state[tk].done) c++; });
+  if (routineState[tk]) c += Object.values(routineState[tk]).filter(Boolean).length;
   return c;
 }
 function buildTreeSVG(points) {
@@ -653,6 +666,67 @@ function renderTree() {
   }
 }
 
+/* =================== GÜNLÜK RUTİNLER =================== */
+function renderRoutines() {
+  const el = $("routines-list");
+  el.innerHTML = "";
+  if (!routines.length) {
+    el.innerHTML = `<li class="routines-empty">Henüz rutin yok. <button id="routines-empty-add">İlk rutinini ekle →</button></li>`;
+    el.querySelector("#routines-empty-add").onclick = openRoutineSheet;
+    return;
+  }
+  routines.forEach((r) => {
+    const done = isRoutineDone(selectedKey, r.id);
+    const li = document.createElement("li");
+    li.className = "routine-item" + (done ? " done" : "");
+    li.innerHTML = `<input type="checkbox" class="check" ${done ? "checked" : ""}/><span></span>`;
+    li.querySelector("span").textContent = r.text;
+    li.querySelector(".check").addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleRoutine(r.id);
+    });
+    el.appendChild(li);
+  });
+}
+function toggleRoutine(id) {
+  const now = !isRoutineDone(selectedKey, id);
+  if (!routineState[selectedKey]) routineState[selectedKey] = {};
+  routineState[selectedKey][id] = now;
+  saveRoutineState();
+  gardenAdd(now ? 1 : -1);
+  renderDay();
+}
+
+// Rutin editörü
+function addRoutineRow(text = "", id = "") {
+  const row = document.createElement("div");
+  row.className = "sub-row";
+  row.dataset.rid = id || uid();
+  row.innerHTML = `<input type="text" placeholder="örn. Su iç, spor yap..." /><button type="button" class="sub-del" aria-label="Kaldır">×</button>`;
+  row.querySelector("input").value = text;
+  row.querySelector(".sub-del").onclick = () => row.remove();
+  $("routine-rows").appendChild(row);
+  return row;
+}
+function openRoutineSheet() {
+  $("sheet").classList.add("hidden");
+  $("note-sheet").classList.add("hidden");
+  $("routine-rows").innerHTML = "";
+  if (routines.length) routines.forEach((r) => addRoutineRow(r.text, r.id));
+  else addRoutineRow();
+  backdrop.classList.remove("hidden");
+  $("routine-sheet").classList.remove("hidden");
+}
+function saveRoutinesFromSheet() {
+  routines = [...$("routine-rows").querySelectorAll(".sub-row")]
+    .map((r) => ({ id: r.dataset.rid, text: r.querySelector("input").value.trim() }))
+    .filter((r) => r.text);
+  saveRoutines();
+  closeSheet();
+  showToast("Rutinler kaydedildi ✓");
+  renderDay();
+}
+
 /* =================== NOT DEFTERİ =================== */
 function prettyDateTime(ts) {
   const d = new Date(ts);
@@ -696,6 +770,7 @@ function buildNoteColors() {
 function openNote(note) {
   $("note-form").reset();
   $("sheet").classList.add("hidden");
+  $("routine-sheet").classList.add("hidden");
   if (note) {
     $("note-sheet-title").textContent = "Notu düzenle";
     $("note-id").value = note.id;
@@ -746,7 +821,7 @@ document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.ta
 
 $("export-btn").onclick = () => {
   closeMenu();
-  const blob = new Blob([JSON.stringify({ version: 2, todos, notes, garden }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ version: 2, todos, notes, garden, routines, routineState }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `planla-yedek-${todayKey()}.json`;
@@ -770,6 +845,8 @@ $("import-file").addEventListener("change", (e) => {
       todos = newTodos.map(normalize);
       if (!Array.isArray(data) && Array.isArray(data.notes)) { notes = data.notes; saveNotes(); }
       if (!Array.isArray(data) && data.garden && typeof data.garden.points === "number") { garden = data.garden; saveGarden(); }
+      if (!Array.isArray(data) && Array.isArray(data.routines)) { routines = data.routines; saveRoutines(); }
+      if (!Array.isArray(data) && data.routineState && typeof data.routineState === "object") { routineState = data.routineState; saveRoutineState(); }
       save(); refreshCurrent(); showToast("Yedek yüklendi 📥");
     } catch { showToast("Dosya okunamadı ✗"); }
     finally { e.target.value = ""; }
@@ -785,6 +862,10 @@ $("clear-all-btn").onclick = () => {
 
 /* =================== OLAY DİNLEYİCİLER =================== */
 $("fab").onclick = () => (view === "notes" ? openNote(null) : openSheet(null, selectedKey));
+$("routines-edit").onclick = openRoutineSheet;
+$("routine-add").onclick = () => addRoutineRow().querySelector("input").focus();
+$("routine-cancel").onclick = closeSheet;
+$("routine-save").onclick = saveRoutinesFromSheet;
 $("cancel-btn").onclick = closeSheet;
 backdrop.onclick = closeSheet;
 

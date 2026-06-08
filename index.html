@@ -56,6 +56,15 @@
     <!-- GÜN VIEW -->
     <main class="view" id="view-day">
       <div class="day-strip" id="day-strip"></div>
+
+      <div class="routines-card" id="routines-card">
+        <div class="routines-head">
+          <h3>🌅 Günlük Rutinler</h3>
+          <button class="routines-edit" id="routines-edit">Düzenle</button>
+        </div>
+        <ul class="routines-list" id="routines-list"></ul>
+      </div>
+
       <div class="cat-filter" id="cat-filter"></div>
       <div class="section-bar">
         <h2 id="day-heading">Bugün</h2>
@@ -216,6 +225,19 @@
         <button type="submit" class="btn-primary">Kaydet</button>
       </div>
     </form>
+  </div>
+
+  <!-- GÜNLÜK RUTİN EDİTÖRÜ -->
+  <div class="sheet hidden" id="routine-sheet">
+    <div class="sheet-handle"></div>
+    <h3>Günlük Rutinler</h3>
+    <p class="sheet-sub">Her gün tekrar eden alışkanlıkların. Tamamladıkça ağacın büyür 🌱</p>
+    <div id="routine-rows" class="sub-list"></div>
+    <button type="button" id="routine-add" class="btn-ghost small">＋ Rutin ekle</button>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" id="routine-cancel">Vazgeç</button>
+      <button type="button" class="btn-primary" id="routine-save">Kaydet</button>
+    </div>
   </div>
 
   <!-- POMODORO -->
