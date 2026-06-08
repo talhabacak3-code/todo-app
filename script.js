@@ -606,11 +606,11 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeShe
 /* =================== ÇALIŞMA TEKNİKLERİ (POMODORO & DİĞERLERİ) =================== */
 // Süreler dakika cinsinden. longEvery: kaç odaktan sonra uzun mola (0 = uzun mola yok).
 const TECHNIQUES = {
-  pomodoro:  { name: "🍅 Pomodoro",        focus: 25, short: 5,  long: 15, longEvery: 4, desc: "25 dk çalış, 5 dk mola. 4 turda bir 15 dk uzun mola." },
-  "5217":    { name: "⏱️ 52 / 17",          focus: 52, short: 17, long: 17, longEvery: 0, desc: "52 dk derin çalışma, 17 dk mola (DeskTime araştırması)." },
-  ultradian: { name: "🧠 90 / 20 Ultradyen", focus: 90, short: 20, long: 30, longEvery: 0, desc: "90 dk yoğun odak, 20 dk dinlenme (ultradyen ritim / derin çalışma)." },
-  "5010":    { name: "📚 50 / 10",          focus: 50, short: 10, long: 30, longEvery: 2, desc: "50 dk çalış, 10 dk mola. 2 turda bir 30 dk uzun mola." },
-  flowtime:  { name: "🌊 Flowtime",          focus: 0,  short: 5,  long: 15, longEvery: 0, flow: true, desc: "Sayaç ileri sayar; doğal olarak yorulunca molaya geç." },
+  pomodoro:  { icon: "🍅", name: "🍅 Pomodoro",        focus: 25, short: 5,  long: 15, longEvery: 4, desc: "25 dk çalış, 5 dk mola. 4 turda bir 15 dk uzun mola." },
+  "5217":    { icon: "⏱️", name: "⏱️ 52 / 17",          focus: 52, short: 17, long: 17, longEvery: 0, desc: "52 dk derin çalışma, 17 dk mola (DeskTime araştırması)." },
+  ultradian: { icon: "🧠", name: "🧠 90 / 20 Ultradyen", focus: 90, short: 20, long: 30, longEvery: 0, desc: "90 dk yoğun odak, 20 dk dinlenme (ultradyen ritim / derin çalışma)." },
+  "5010":    { icon: "📚", name: "📚 50 / 10",          focus: 50, short: 10, long: 30, longEvery: 2, desc: "50 dk çalış, 10 dk mola. 2 turda bir 30 dk uzun mola." },
+  flowtime:  { icon: "🌊", name: "🌊 Flowtime",          focus: 0,  short: 5,  long: 15, longEvery: 0, flow: true, desc: "Sayaç ileri sayar; doğal olarak yorulunca molaya geç." },
 };
 const POMO_KEY = "planla_pomo";
 const TECH_KEY = "planla_tech";
@@ -631,6 +631,15 @@ const pomoFmt = (s) => `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 const tech = () => TECHNIQUES[pomoTech];
 const techSec = (m) => tech()[m] * 60;
 const isFlowFocus = () => tech().flow && pomoMode === "focus";
+
+// Başlık (header pill): boştayken teknik adı, çalışırken canlı sayaç
+function updatePill() {
+  const t = tech();
+  const running = !!pomoTimer;
+  const timeStr = isFlowFocus() ? pomoFmt(pomoElapsed) : pomoFmt(pomoRemaining);
+  $("pomo-pill-label").textContent = running ? `${t.icon} ${timeStr}` : t.name;
+  $("pomo-btn").classList.toggle("running", running);
+}
 
 function pomoBuildTech() {
   const sel = $("pomo-tech");
@@ -666,6 +675,7 @@ function pomoRender() {
   lb.textContent = `Uzun · ${f.long}dk`;
   lb.classList.toggle("hidden", f.longEvery === 0);
   $("pomo-modes").querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.m === pomoMode));
+  updatePill();
 }
 
 function pomoStop() { if (pomoTimer) { clearInterval(pomoTimer); pomoTimer = null; } }
@@ -746,8 +756,9 @@ $("pomo-modes").querySelectorAll(".seg-btn").forEach((b) =>
     pomoSetMode(b.dataset.m);
   }));
 
-// başlangıç süresi
+// başlangıç süresi + başlık
 pomoRemaining = techSec("focus");
+updatePill();
 
 /* =================== TEMA =================== */
 function applyTheme(t) {
