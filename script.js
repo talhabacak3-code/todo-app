@@ -99,6 +99,36 @@ let formNoteColor = NOTE_COLORS[0];
 try { notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || []; } catch { notes = []; }
 function saveNotes() { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); }
 
+/* ---------- Ağaç Bahçesi (oyun) ---------- */
+const GARDEN_KEY = "planla_garden";
+const STAGES = [
+  { min: 0,  name: "Tohum",        emoji: "🌰" },
+  { min: 1,  name: "Filiz",        emoji: "🌱" },
+  { min: 3,  name: "Fidan",        emoji: "🌿" },
+  { min: 6,  name: "Genç Ağaç",    emoji: "🪴" },
+  { min: 12, name: "Ağaç",         emoji: "🌳" },
+  { min: 24, name: "Gür Ağaç",     emoji: "🌳" },
+  { min: 40, name: "Meyveli Ağaç", emoji: "🍎" },
+];
+let garden = (() => { try { return JSON.parse(localStorage.getItem(GARDEN_KEY)) || { points: 0 }; } catch { return { points: 0 }; } })();
+function saveGarden() { localStorage.setItem(GARDEN_KEY, JSON.stringify(garden)); }
+function treeStageIndex(p) { let idx = 0; for (let i = 0; i < STAGES.length; i++) if (p >= STAGES[i].min) idx = i; return idx; }
+function gardenAdd(n) {
+  const before = treeStageIndex(garden.points);
+  garden.points = Math.max(0, garden.points + n);
+  saveGarden();
+  const after = treeStageIndex(garden.points);
+  if (n > 0 && after > before) showToast(`Ağacın büyüdü → ${STAGES[after].name} ${STAGES[after].emoji}`);
+  if (view === "tree") renderTree();
+}
+// Görevi tamamla/geri al + bahçe puanını güncelle
+function toggleDone(t, dk) {
+  const now = !isDone(t, dk);
+  mutState(t, dk).done = now;
+  gardenAdd(now ? 1 : -1);
+  save();
+}
+
 /* ---------- Tekrar + durum mantığı ---------- */
 function occursOn(t, dk) {
   if (dk < t.date) return false;
@@ -131,7 +161,7 @@ function byKey(dk) {
 
 /* ---------- DOM ---------- */
 const $ = (id) => document.getElementById(id);
-const viewDay = $("view-day"), viewWeek = $("view-week"), viewMonth = $("view-month"), viewNotes = $("view-notes");
+const viewDay = $("view-day"), viewWeek = $("view-week"), viewMonth = $("view-month"), viewNotes = $("view-notes"), viewTree = $("view-tree");
 const taskList = $("task-list"), dayStrip = $("day-strip");
 const dayHeading = $("day-heading"), headerTitle = $("header-title"), headerSub = $("header-sub");
 const monthGrid = $("month-grid"), monthTitle = $("month-title");
@@ -226,8 +256,7 @@ function buildTaskItem(t, dk) {
   // tamamlandı
   li.querySelector(".check").addEventListener("click", (e) => {
     e.stopPropagation();
-    mutState(t, dk).done = !isDone(t, dk);
-    save(); renderDay();
+    toggleDone(t, dk); renderDay();
   });
 
   // düzenle (sürükleme sonrası tıklamayı engelle)
@@ -317,8 +346,7 @@ function renderWeek() {
         mini.querySelector(".m-title").append(t.text);
         mini.querySelector(".check").addEventListener("click", (e) => {
           e.stopPropagation();
-          mutState(t, k).done = !isDone(t, k);
-          save(); renderWeek();
+          toggleDone(t, k); renderWeek();
         });
         mini.addEventListener("click", () => openSheet(t, k));
         ul.appendChild(mini);
@@ -411,6 +439,7 @@ function switchView(v) {
   viewWeek.classList.toggle("hidden", v !== "week");
   viewMonth.classList.toggle("hidden", v !== "month");
   viewNotes.classList.toggle("hidden", v !== "notes");
+  viewTree.classList.toggle("hidden", v !== "tree");
   $("progress-card").classList.toggle("hidden", v !== "day");
   document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   if (v === "day") renderDay();
@@ -420,6 +449,9 @@ function switchView(v) {
   } else if (v === "notes") {
     headerTitle.textContent = "Not Defteri"; headerSub.textContent = "Aklındakileri yaz";
     renderNotes();
+  } else if (v === "tree") {
+    headerTitle.textContent = "Ağaç Bahçesi"; headerSub.textContent = "Görevlerle büyüt";
+    renderTree();
   } else {
     headerTitle.textContent = "Takvim"; headerSub.textContent = "Ayını planla";
     renderMonth();
@@ -496,6 +528,7 @@ function refreshCurrent() {
   if (view === "week") renderWeek();
   else if (view === "month") renderMonth();
   else if (view === "notes") renderNotes();
+  else if (view === "tree") renderTree();
   else renderDay();
 }
 
@@ -558,6 +591,67 @@ $("skip-btn").addEventListener("click", () => {
   if (!t.skip.includes(currentOccDate)) t.skip.push(currentOccDate);
   save(); closeSheet(); showToast("Bu gün atlandı"); refreshCurrent();
 });
+
+/* =================== AĞAÇ BAHÇESİ =================== */
+function todayDoneCount() {
+  const tk = todayKey(); let c = 0;
+  todos.forEach((t) => { if (t.state && t.state[tk] && t.state[tk].done) c++; });
+  return c;
+}
+function buildTreeSVG(points) {
+  const stage = treeStageIndex(points);
+  const g = Math.min(points / 40, 1);          // 0..1 boyut
+  const cx = 100, groundY = 214;
+  let s = `<svg viewBox="0 0 200 240" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">`;
+  s += `<ellipse cx="100" cy="${groundY + 8}" rx="${42 + g * 28}" ry="11" fill="rgba(124,95,230,0.15)"/>`;
+  s += `<path d="M46 ${groundY + 6} Q100 ${groundY - 16} 154 ${groundY + 6} Z" fill="#7bcf8e" opacity="0.55"/>`;
+
+  if (points < 1) {
+    // tohum / filiz
+    s += `<path d="M100 ${groundY} q0 -16 0 -20" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    s += `<ellipse cx="92" cy="${groundY - 18}" rx="10" ry="6" fill="#4ade80" transform="rotate(-32 92 ${groundY - 18})"/>`;
+    s += `<ellipse cx="108" cy="${groundY - 20}" rx="10" ry="6" fill="#4ade80" transform="rotate(28 108 ${groundY - 20})"/>`;
+    return s + `</svg>`;
+  }
+
+  const trunkH = 16 + g * 120, trunkW = 7 + g * 15, topY = groundY - trunkH;
+  s += `<rect x="${(cx - trunkW / 2).toFixed(1)}" y="${topY.toFixed(1)}" width="${trunkW.toFixed(1)}" height="${trunkH.toFixed(1)}" rx="${(trunkW / 2).toFixed(1)}" fill="#a06b4c"/>`;
+
+  const greens = ["#86efac", "#4ade80", "#22c55e", "#16a34a"];
+  const R = 16 + g * 60;
+  const blobs = [[0, -0.2, 1], [-0.75, 0.15, 0.72], [0.75, 0.15, 0.72], [0, -0.85, 0.8], [-0.5, -0.55, 0.66], [0.5, -0.55, 0.66], [-0.32, 0.45, 0.55], [0.32, 0.45, 0.55]];
+  const count = Math.min(blobs.length, 3 + stage);
+  for (let i = 0; i < count; i++) {
+    const [dx, dy, rf] = blobs[i];
+    const x = cx + dx * R, y = topY + dy * R;
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(R * rf).toFixed(1)}" fill="${greens[Math.min(3, 1 + (i % 3))]}"/>`;
+  }
+  // çiçek (aşama 4+) / meyve (aşama 5+)
+  const decoCount = stage >= 4 ? (stage >= 6 ? 11 : stage >= 5 ? 7 : 4) : 0;
+  const decoColor = stage >= 5 ? "#ef4444" : "#f9a8d4";
+  for (let i = 0; i < decoCount; i++) {
+    const a = (i / decoCount) * Math.PI * 2;
+    const x = cx + Math.cos(a) * R * 0.7, y = topY - R * 0.1 + Math.sin(a) * R * 0.7;
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${stage >= 5 ? 4.8 : 3.6}" fill="${decoColor}"/>`;
+  }
+  return s + `</svg>`;
+}
+function renderTree() {
+  const p = garden.points, i = treeStageIndex(p), st = STAGES[i];
+  $("tree-stage").textContent = `${st.name} ${st.emoji}`;
+  $("tree-canvas").innerHTML = buildTreeSVG(p);
+  $("tree-points").textContent = p;
+  $("tree-today").textContent = todayDoneCount();
+  const next = STAGES[i + 1];
+  if (next) {
+    const prog = Math.max(0, Math.min(1, (p - st.min) / (next.min - st.min)));
+    $("tree-bar").style.width = prog * 100 + "%";
+    $("tree-info").textContent = `Sonraki aşama için ${next.min - p} görev daha 🌟`;
+  } else {
+    $("tree-bar").style.width = "100%";
+    $("tree-info").textContent = "Ağacın tamamen büyüdü! 🎉 Böyle devam et.";
+  }
+}
 
 /* =================== NOT DEFTERİ =================== */
 function prettyDateTime(ts) {
@@ -652,7 +746,7 @@ document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.ta
 
 $("export-btn").onclick = () => {
   closeMenu();
-  const blob = new Blob([JSON.stringify({ version: 2, todos, notes }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ version: 2, todos, notes, garden }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `planla-yedek-${todayKey()}.json`;
@@ -675,6 +769,7 @@ $("import-file").addEventListener("change", (e) => {
       if (!confirm("İçe aktarılan veriler mevcut görev ve notların yerini alacak. Devam edilsin mi?")) return;
       todos = newTodos.map(normalize);
       if (!Array.isArray(data) && Array.isArray(data.notes)) { notes = data.notes; saveNotes(); }
+      if (!Array.isArray(data) && data.garden && typeof data.garden.points === "number") { garden = data.garden; saveGarden(); }
       save(); refreshCurrent(); showToast("Yedek yüklendi 📥");
     } catch { showToast("Dosya okunamadı ✗"); }
     finally { e.target.value = ""; }

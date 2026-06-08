@@ -92,6 +92,21 @@
       <p class="month-hint">Görev eklemek veya görmek için bir güne dokun</p>
     </main>
 
+    <!-- AĞAÇ BAHÇESİ VIEW -->
+    <main class="view hidden" id="view-tree">
+      <div class="tree-card">
+        <div class="tree-stage" id="tree-stage">Filiz 🌱</div>
+        <div class="tree-canvas" id="tree-canvas"></div>
+        <div class="tree-progress"><div class="tree-progress-bar" id="tree-bar"></div></div>
+        <p class="tree-info" id="tree-info"></p>
+      </div>
+      <div class="tree-stats">
+        <div class="tstat"><strong id="tree-points">0</strong><span>büyüme puanı</span></div>
+        <div class="tstat"><strong id="tree-today">0</strong><span>bugün tamamlanan</span></div>
+      </div>
+      <p class="tree-hint">Her tamamladığın görev ağacını biraz daha büyütür 🌱</p>
+    </main>
+
     <!-- NOT DEFTERİ VIEW -->
     <main class="view hidden" id="view-notes">
       <div class="section-bar"><h2>Not Defteri</h2></div>
@@ -105,6 +120,7 @@
       <button class="fab" id="fab" aria-label="Ekle">+</button>
       <button class="nav-btn" data-view="month"><span class="nav-ico">🗓️</span><span>Ay</span></button>
       <button class="nav-btn" data-view="notes"><span class="nav-ico">📝</span><span>Not</span></button>
+      <button class="nav-btn" data-view="tree"><span class="nav-ico">🌳</span><span>Ağaç</span></button>
     </nav>
   </div>
 
