@@ -2,76 +2,167 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Yapılacaklar Listesi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#a78bfa" />
+  <title>Planla · Yapılacaklar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- GİRİŞ / KAYIT EKRANI -->
-  <div class="app auth-screen" id="auth-screen" hidden>
-    <h1>📋 Yapılacaklar</h1>
-    <p class="subtitle">Devam etmek için giriş yap veya kayıt ol</p>
+  <div class="app-shell">
 
-    <form id="auth-form" class="auth-form">
-      <input
-        type="email"
-        id="auth-email"
-        placeholder="E-posta"
-        autocomplete="email"
-        required
-      />
-      <input
-        type="password"
-        id="auth-password"
-        placeholder="Şifre (en az 6 karakter)"
-        autocomplete="current-password"
-        minlength="6"
-        required
-      />
-      <button type="submit" id="auth-submit">Giriş Yap</button>
-    </form>
+    <!-- ÜST BAŞLIK -->
+    <header class="app-header">
+      <div class="header-row">
+        <div class="brand">
+          <span class="brand-logo">✦</span>
+          <div>
+            <h1 id="header-title">Bugün</h1>
+            <p class="brand-sub" id="header-sub">Hadi planını yapalım</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="theme-btn" aria-label="Tema değiştir">🌙</button>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="menu-btn" aria-label="Menü">⋯</button>
+            <div class="menu hidden" id="menu">
+              <button id="export-btn">📤 Yedeği dışa aktar</button>
+              <button id="import-btn">📥 Yedeği içe aktar</button>
+              <button id="clear-all-btn" class="danger">🗑️ Tümünü temizle</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <p class="auth-error" id="auth-error"></p>
+      <!-- İlerleme -->
+      <div class="progress-card" id="progress-card">
+        <div class="progress-ring">
+          <svg viewBox="0 0 64 64">
+            <circle class="ring-bg" cx="32" cy="32" r="27"></circle>
+            <circle class="ring-fg" id="ring-fg" cx="32" cy="32" r="27"></circle>
+          </svg>
+          <span class="ring-label" id="ring-label">0%</span>
+        </div>
+        <div class="progress-text">
+          <strong id="progress-title">Henüz görev yok</strong>
+          <span id="progress-detail">Yeni bir görev ekleyerek başla</span>
+        </div>
+      </div>
+    </header>
 
-    <p class="auth-switch">
-      <span id="auth-switch-text">Hesabın yok mu?</span>
-      <button type="button" id="auth-switch-btn" class="link-btn">Kayıt ol</button>
-    </p>
+    <!-- GÜN VIEW -->
+    <main class="view" id="view-day">
+      <div class="day-strip" id="day-strip"></div>
+      <div class="section-bar">
+        <h2 id="day-heading">Bugün</h2>
+        <div class="seg" id="day-filter">
+          <button class="seg-btn active" data-f="all">Tümü</button>
+          <button class="seg-btn" data-f="active">Aktif</button>
+          <button class="seg-btn" data-f="done">Biten</button>
+        </div>
+      </div>
+      <ul class="task-list" id="task-list"></ul>
+    </main>
+
+    <!-- HAFTA VIEW -->
+    <main class="view hidden" id="view-week">
+      <div class="range-nav">
+        <button class="icon-btn" id="prev-week" aria-label="Önceki hafta">‹</button>
+        <h2 id="week-title">Hafta</h2>
+        <button class="icon-btn" id="next-week" aria-label="Sonraki hafta">›</button>
+      </div>
+      <div id="week-list" class="week-list"></div>
+    </main>
+
+    <!-- AY VIEW -->
+    <main class="view hidden" id="view-month">
+      <div class="range-nav">
+        <button class="icon-btn" id="prev-month" aria-label="Önceki ay">‹</button>
+        <h2 id="month-title">Ay</h2>
+        <button class="icon-btn" id="next-month" aria-label="Sonraki ay">›</button>
+      </div>
+      <div class="weekdays">
+        <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+      </div>
+      <div class="month-grid" id="month-grid"></div>
+      <p class="month-hint">Görev eklemek veya görmek için bir güne dokun</p>
+    </main>
+
+    <!-- ALT NAVIGASYON -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-view="day"><span class="nav-ico">📅</span><span>Gün</span></button>
+      <button class="nav-btn" data-view="week"><span class="nav-ico">🗒️</span><span>Hafta</span></button>
+      <button class="fab" id="fab" aria-label="Görev ekle">+</button>
+      <button class="nav-btn" data-view="month"><span class="nav-ico">🗓️</span><span>Ay</span></button>
+    </nav>
   </div>
 
-  <!-- UYGULAMA -->
-  <div class="app" id="app-screen" hidden>
-    <div class="topbar">
-      <h1>📋 Yapılacaklar</h1>
-      <button id="logout-btn" class="logout-btn">Çıkış</button>
-    </div>
-    <p class="user-email" id="user-email"></p>
+  <!-- GÖREV EKLEME / DÜZENLEME PANELİ -->
+  <div class="sheet-backdrop hidden" id="sheet-backdrop"></div>
+  <div class="sheet hidden" id="sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="sheet-title">Yeni görev</h3>
+    <form id="task-form" class="sheet-form">
+      <input type="hidden" id="task-id" />
+      <label class="field">
+        <span>Görev</span>
+        <input type="text" id="f-text" placeholder="Ne yapacaksın?" autocomplete="off" required />
+      </label>
 
-    <form id="todo-form" class="todo-form">
-      <input
-        type="text"
-        id="todo-input"
-        placeholder="Yeni görev ekle..."
-        autocomplete="off"
-      />
-      <button type="submit">Ekle</button>
+      <div class="field-row">
+        <label class="field">
+          <span>Tarih</span>
+          <input type="date" id="f-date" required />
+        </label>
+        <label class="field">
+          <span>Saat</span>
+          <input type="time" id="f-time" />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Öncelik</span>
+        <div class="seg seg-priority" id="f-priority">
+          <button type="button" class="seg-btn active" data-p="low">Düşük</button>
+          <button type="button" class="seg-btn" data-p="med">Orta</button>
+          <button type="button" class="seg-btn" data-p="high">Yüksek</button>
+        </div>
+      </label>
+
+      <label class="field">
+        <span>Tekrar</span>
+        <select id="f-repeat">
+          <option value="none">Tekrar yok</option>
+          <option value="daily">Her gün</option>
+          <option value="weekdays">Hafta içi (Pzt–Cum)</option>
+          <option value="weekly">Her hafta</option>
+          <option value="monthly">Her ay</option>
+        </select>
+      </label>
+
+      <div class="field">
+        <span>Alt görevler</span>
+        <div id="sub-list" class="sub-list"></div>
+        <button type="button" id="add-sub" class="btn-ghost small">＋ Alt görev ekle</button>
+      </div>
+
+      <label class="field">
+        <span>Not (opsiyonel)</span>
+        <textarea id="f-note" rows="2" placeholder="Detay ekle..."></textarea>
+      </label>
+
+      <div class="sheet-actions">
+        <button type="button" class="btn-ghost danger hidden" id="skip-btn">Bu günü atla</button>
+        <button type="button" class="btn-ghost danger hidden" id="delete-btn">Sil</button>
+        <button type="button" class="btn-ghost" id="cancel-btn">Vazgeç</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
     </form>
-
-    <div class="filters">
-      <button class="filter-btn active" data-filter="all">Tümü</button>
-      <button class="filter-btn" data-filter="active">Aktif</button>
-      <button class="filter-btn" data-filter="done">Tamamlanan</button>
-    </div>
-
-    <ul id="todo-list" class="todo-list"></ul>
-
-    <div class="footer">
-      <span id="count">0 görev</span>
-      <button id="clear-done" class="clear-btn">Tamamlananları temizle</button>
-    </div>
   </div>
 
-  <script src="config.js"></script>
+  <input type="file" id="import-file" accept="application/json,.json" hidden />
+  <div class="toast hidden" id="toast"></div>
+
   <script src="script.js"></script>
 </body>
 </html>

@@ -1,334 +1,568 @@
-// ===== Sabitler =====
-const REST = `${SUPABASE_URL}/rest/v1/todos`;
-const AUTH = `${SUPABASE_URL}/auth/v1`;
-const SESSION_KEY = "todo_session";
+/* ===========================================================
+   Planla · Yapılacaklar Listesi
+   Saf HTML/CSS/JS · veriler tarayıcıda (localStorage) saklanır
+   Özellikler: gün/hafta/ay görünümü, tekrarlayan görevler,
+   alt görevler, sürükle-bırak sıralama, JSON dışa/içe aktarma
+   =========================================================== */
 
-// ===== DOM =====
-const authScreen = document.getElementById("auth-screen");
-const appScreen = document.getElementById("app-screen");
-const authForm = document.getElementById("auth-form");
-const authEmail = document.getElementById("auth-email");
-const authPassword = document.getElementById("auth-password");
-const authSubmit = document.getElementById("auth-submit");
-const authError = document.getElementById("auth-error");
-const authSwitchBtn = document.getElementById("auth-switch-btn");
-const authSwitchText = document.getElementById("auth-switch-text");
-const logoutBtn = document.getElementById("logout-btn");
-const userEmailEl = document.getElementById("user-email");
+const STORE_KEY = "planla_todos_v2";
+const OLD_KEY = "planla_todos_v1";
+const THEME_KEY = "planla_theme";
 
-const form = document.getElementById("todo-form");
-const input = document.getElementById("todo-input");
-const list = document.getElementById("todo-list");
-const countEl = document.getElementById("count");
-const clearBtn = document.getElementById("clear-done");
-const filterBtns = document.querySelectorAll(".filter-btn");
+/* ---------- Tarih yardımcıları ---------- */
+const pad = (n) => String(n).padStart(2, "0");
+const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const todayKey = () => keyOf(new Date());
+const DOW = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+const DOW_LONG = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+const REPEAT_LABEL = { daily: "Her gün", weekdays: "Hafta içi", weekly: "Her hafta", monthly: "Her ay" };
 
-// ===== Durum =====
-let session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+const parseKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const isoDow = (date) => (date.getDay() + 6) % 7;           // Pazartesi = 0
+const addDays = (date, n) => { const d = new Date(date); d.setDate(d.getDate() + n); return d; };
+function startOfWeek(date) { return addDays(date, -isoDow(date)); }
+
+function prettyDate(k) {
+  const d = parseKey(k), t = parseKey(todayKey());
+  const diff = Math.round((d - t) / 86400000);
+  if (diff === 0) return "Bugün";
+  if (diff === 1) return "Yarın";
+  if (diff === -1) return "Dün";
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${DOW[isoDow(d)]}`;
+}
+
+const uid = () =>
+  (crypto.randomUUID && crypto.randomUUID()) ||
+  Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+/* ---------- Durum ---------- */
 let todos = [];
-let filter = "all";
-let authMode = "login"; // "login" | "signup"
+let selectedKey = todayKey();
+let dayFilter = "all";
+let view = "day";
+let monthCursor = new Date();
+let weekCursor = startOfWeek(new Date());
+let formPriority = "low";
+let currentOccDate = null;  // düzenleme panelini açan günün tarihi
 
-// ===== Oturum yardımcıları =====
-function saveSession(s) {
-  session = s;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+/* ---------- Yükleme + migrasyon ---------- */
+function normalize(t) {
+  return {
+    id: t.id || uid(),
+    text: t.text || "",
+    date: t.date || todayKey(),
+    time: t.time || "",
+    note: t.note || "",
+    priority: ["low", "med", "high"].includes(t.priority) ? t.priority : "low",
+    repeat: ["none","daily","weekdays","weekly","monthly"].includes(t.repeat) ? t.repeat : "none",
+    order: typeof t.order === "number" ? t.order : Date.now() + Math.random(),
+    subtasks: Array.isArray(t.subtasks) ? t.subtasks.map((s) => ({ id: s.id || uid(), text: s.text || "" })) : [],
+    skip: Array.isArray(t.skip) ? t.skip : [],
+    state: t.state && typeof t.state === "object" ? t.state : {},
+  };
+}
+function migrateOld(t) {
+  const n = normalize(t);
+  if (typeof t.done === "boolean" && t.done) n.state[n.date] = { done: true, subs: {} };
+  return n;
+}
+function loadData() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch {}
+  if (!raw) {
+    let old = null;
+    try { old = JSON.parse(localStorage.getItem(OLD_KEY) || "null"); } catch {}
+    raw = old ? old.map(migrateOld) : [];
+  }
+  todos = (raw || []).map(normalize);
+}
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(todos)); }
+
+/* ---------- Tekrar + durum mantığı ---------- */
+function occursOn(t, dk) {
+  if (dk < t.date) return false;
+  if (t.skip.includes(dk)) return false;
+  switch (t.repeat) {
+    case "daily":    return true;
+    case "weekdays": return isoDow(parseKey(dk)) < 5;
+    case "weekly":   return isoDow(parseKey(dk)) === isoDow(parseKey(t.date));
+    case "monthly":  return parseKey(dk).getDate() === parseKey(t.date).getDate();
+    default:         return dk === t.date;
+  }
+}
+const stateOf = (t, dk) => t.state[dk] || null;
+const isDone = (t, dk) => !!(stateOf(t, dk) && stateOf(t, dk).done);
+function mutState(t, dk) {
+  if (!t.state[dk]) t.state[dk] = { done: false, subs: {} };
+  if (!t.state[dk].subs) t.state[dk].subs = {};
+  return t.state[dk];
+}
+const subDone = (t, dk, sid) => !!(stateOf(t, dk) && stateOf(t, dk).subs && stateOf(t, dk).subs[sid]);
+
+function byKey(dk) {
+  return todos
+    .filter((t) => occursOn(t, dk))
+    .sort((a, b) =>
+      (isDone(a, dk) - isDone(b, dk)) ||
+      (a.order - b.order) ||
+      (a.time || "99:99").localeCompare(b.time || "99:99"));
 }
 
-function clearSession() {
-  session = null;
-  localStorage.removeItem(SESSION_KEY);
+/* ---------- DOM ---------- */
+const $ = (id) => document.getElementById(id);
+const viewDay = $("view-day"), viewWeek = $("view-week"), viewMonth = $("view-month");
+const taskList = $("task-list"), dayStrip = $("day-strip");
+const dayHeading = $("day-heading"), headerTitle = $("header-title"), headerSub = $("header-sub");
+const monthGrid = $("month-grid"), monthTitle = $("month-title");
+const weekList = $("week-list"), weekTitle = $("week-title");
+const sheet = $("sheet"), backdrop = $("sheet-backdrop"), form = $("task-form");
+const toast = $("toast"), subListEl = $("sub-list");
+
+/* =================== GÜN GÖRÜNÜMÜ =================== */
+function renderDayStrip() {
+  dayStrip.innerHTML = "";
+  const base = parseKey(selectedKey);
+  for (let i = -3; i <= 10; i++) {
+    const d = addDays(base, i), k = keyOf(d);
+    const pill = document.createElement("button");
+    pill.className = "day-pill";
+    if (k === selectedKey) pill.classList.add("active");
+    if (k === todayKey()) pill.classList.add("today");
+    if (byKey(k).length) pill.classList.add("has-dot");
+    pill.innerHTML = `<span class="dow">${DOW[isoDow(d)]}</span><span class="dnum">${d.getDate()}</span><span class="dot"></span>`;
+    pill.onclick = () => { selectedKey = k; renderDay(); };
+    dayStrip.appendChild(pill);
+  }
+  const active = dayStrip.querySelector(".active");
+  if (active) active.scrollIntoView({ inline: "center", block: "nearest" });
 }
 
-// access_token süresi dolduysa refresh_token ile yeniler
-async function refreshSession() {
-  if (!session?.refresh_token) throw new Error("Oturum yok");
-  const res = await fetch(`${AUTH}/token?grant_type=refresh_token`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: session.refresh_token }),
+function buildTaskItem(t, dk) {
+  const done = isDone(t, dk);
+  const li = document.createElement("li");
+  li.className = `task-item p-${t.priority}` + (done ? " done" : "");
+  li.dataset.id = t.id;
+
+  const subTotal = t.subtasks.length;
+  const subDoneCount = t.subtasks.filter((s) => subDone(t, dk, s.id)).length;
+
+  li.innerHTML = `
+    <span class="drag-handle" title="Sürükle">⠿</span>
+    <input type="checkbox" class="check" ${done ? "checked" : ""}/>
+    <div class="task-body">
+      <div class="task-title"></div>
+      <div class="task-meta">
+        ${t.time ? `<span class="chip time">🕑 ${t.time}</span>` : ""}
+        ${t.repeat !== "none" ? `<span class="chip repeat">🔁 ${REPEAT_LABEL[t.repeat]}</span>` : ""}
+        ${subTotal ? `<span class="chip subs">☑ ${subDoneCount}/${subTotal}</span>` : ""}
+      </div>
+      ${subTotal ? `<ul class="subtasks"></ul>` : ""}
+      ${t.note ? `<div class="task-note"></div>` : ""}
+    </div>`;
+
+  li.querySelector(".task-title").textContent = t.text;
+  if (t.note) li.querySelector(".task-note").textContent = t.note;
+
+  // alt görevler
+  if (subTotal) {
+    const ul = li.querySelector(".subtasks");
+    t.subtasks.forEach((s) => {
+      const sli = document.createElement("li");
+      const checked = subDone(t, dk, s.id);
+      if (checked) sli.className = "sdone";
+      sli.innerHTML = `<input type="checkbox" class="sub-check" ${checked ? "checked" : ""}/><span></span>`;
+      sli.querySelector("span").textContent = s.text;
+      sli.querySelector(".sub-check").addEventListener("click", (e) => {
+        e.stopPropagation();
+        mutState(t, dk).subs[s.id] = !subDone(t, dk, s.id);
+        save(); renderDay();
+      });
+      ul.appendChild(sli);
+    });
+  }
+
+  // tamamlandı
+  li.querySelector(".check").addEventListener("click", (e) => {
+    e.stopPropagation();
+    mutState(t, dk).done = !isDone(t, dk);
+    save(); renderDay();
   });
-  if (!res.ok) throw new Error("Oturum yenilenemedi");
-  saveSession(await res.json());
+
+  // düzenle (sürükleme sonrası tıklamayı engelle)
+  li.addEventListener("click", () => { if (!li.dataset.dragged) openSheet(t, dk); });
+
+  // sürükleme
+  li.querySelector(".drag-handle").addEventListener("pointerdown", (e) => startDrag(e, li, dk));
+  return li;
 }
 
-// Giriş yapmış kullanıcı adına REST isteği (401'de bir kez token yeniler)
-async function apiFetch(url, options = {}, retry = true) {
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${session.access_token}`,
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-  });
-  if (res.status === 401 && retry) {
-    await refreshSession();
-    return apiFetch(url, options, false);
+function renderTasks() {
+  const all = byKey(selectedKey);
+  const list = all.filter((t) =>
+    dayFilter === "active" ? !isDone(t, selectedKey)
+    : dayFilter === "done" ? isDone(t, selectedKey) : true);
+
+  taskList.innerHTML = "";
+  if (!list.length) {
+    const msg = all.length ? "Bu filtrede görev yok" : "Bu gün için görev yok";
+    taskList.innerHTML = `<li class="empty-state"><span class="emo">🌿</span><p>${msg}</p></li>`;
+    return;
+  }
+  list.forEach((t) => taskList.appendChild(buildTaskItem(t, selectedKey)));
+}
+
+function renderProgress() {
+  const all = byKey(selectedKey);
+  const done = all.filter((t) => isDone(t, selectedKey)).length;
+  const pct = all.length ? Math.round((done / all.length) * 100) : 0;
+  const C = 169.6;
+  $("ring-fg").style.strokeDashoffset = C - (C * pct) / 100;
+  $("ring-label").textContent = pct + "%";
+  if (!all.length) {
+    $("progress-title").textContent = "Henüz görev yok";
+    $("progress-detail").textContent = "Yeni bir görev ekleyerek başla";
+  } else if (done === all.length) {
+    $("progress-title").textContent = "Hepsi tamam! 🎉";
+    $("progress-detail").textContent = `${all.length} görevin tamamı bitti`;
+  } else {
+    $("progress-title").textContent = `${done}/${all.length} tamamlandı`;
+    $("progress-detail").textContent = `${all.length - done} görev kaldı`;
+  }
+}
+
+function renderDay() {
+  const label = prettyDate(selectedKey);
+  dayHeading.textContent = label;
+  if (view === "day") { headerTitle.textContent = label; headerSub.textContent = "Hadi planını yapalım"; }
+  renderDayStrip(); renderTasks(); renderProgress();
+}
+
+/* =================== HAFTA GÖRÜNÜMÜ =================== */
+function renderWeek() {
+  const start = weekCursor, end = addDays(start, 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  weekTitle.textContent = sameMonth
+    ? `${start.getDate()}–${end.getDate()} ${MONTHS[end.getMonth()]} ${end.getFullYear()}`
+    : `${start.getDate()} ${MONTHS[start.getMonth()]} – ${end.getDate()} ${MONTHS[end.getMonth()]}`;
+
+  weekList.innerHTML = "";
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(start, i), k = keyOf(d);
+    const block = document.createElement("div");
+    block.className = "week-day" + (k === todayKey() ? " today" : "");
+    block.innerHTML = `
+      <div class="week-day-head">
+        <span class="wd-title">${DOW_LONG[i]} · ${d.getDate()} ${MONTHS[d.getMonth()]}</span>
+        <button class="wd-add" aria-label="Ekle">＋</button>
+      </div>
+      <ul class="week-tasks"></ul>`;
+
+    block.querySelector(".wd-add").onclick = () => openSheet(null, k);
+
+    const ul = block.querySelector(".week-tasks");
+    const tasks = byKey(k);
+    if (!tasks.length) {
+      ul.innerHTML = `<li class="week-empty">Görev yok</li>`;
+    } else {
+      tasks.forEach((t) => {
+        const done = isDone(t, k);
+        const mini = document.createElement("li");
+        mini.className = `mini p-${t.priority}` + (done ? " done" : "");
+        mini.innerHTML = `
+          <input type="checkbox" class="check" style="width:20px;height:20px" ${done ? "checked" : ""}/>
+          <span class="m-title"></span>
+          ${t.time ? `<span class="m-time">${t.time}</span>` : ""}`;
+        mini.querySelector(".m-title").textContent = t.text;
+        mini.querySelector(".check").addEventListener("click", (e) => {
+          e.stopPropagation();
+          mutState(t, k).done = !isDone(t, k);
+          save(); renderWeek();
+        });
+        mini.addEventListener("click", () => openSheet(t, k));
+        ul.appendChild(mini);
+      });
+    }
+    weekList.appendChild(block);
+  }
+}
+
+/* =================== AY GÖRÜNÜMÜ =================== */
+function renderMonth() {
+  const y = monthCursor.getFullYear(), m = monthCursor.getMonth();
+  monthTitle.textContent = `${MONTHS[m]} ${y}`;
+  monthGrid.innerHTML = "";
+  const first = new Date(y, m, 1);
+  const startPad = isoDow(first);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const prevDays = new Date(y, m, 0).getDate();
+  for (let i = startPad - 1; i >= 0; i--) addCell(new Date(y, m - 1, prevDays - i), true);
+  for (let d = 1; d <= daysInMonth; d++) addCell(new Date(y, m, d), false);
+  const tail = (7 - ((startPad + daysInMonth) % 7)) % 7;
+  for (let d = 1; d <= tail; d++) addCell(new Date(y, m + 1, d), true);
+}
+function addCell(date, muted) {
+  const k = keyOf(date), tasks = byKey(k);
+  const cell = document.createElement("div");
+  cell.className = "cell" + (muted ? " muted" : "");
+  if (k === todayKey()) cell.classList.add("today");
+  if (k === selectedKey) cell.classList.add("selected");
+  const dots = Math.min(tasks.length, 3);
+  let dotsHtml = ""; for (let i = 0; i < dots; i++) dotsHtml += "<i></i>";
+  cell.innerHTML = `
+    ${tasks.length > 3 ? `<span class="count-badge">${tasks.length}</span>` : ""}
+    <span class="num">${date.getDate()}</span>
+    <span class="cell-dots">${dotsHtml}</span>`;
+  cell.onclick = () => {
+    selectedKey = k;
+    monthCursor = new Date(date.getFullYear(), date.getMonth(), 1);
+    switchView("day");
+  };
+  monthGrid.appendChild(cell);
+}
+
+/* =================== SÜRÜKLE-BIRAK =================== */
+let dragEl = null;
+function startDrag(e, li, dk) {
+  e.preventDefault(); e.stopPropagation();
+  dragEl = li; dragEl.dataset.dk = dk;
+  li.classList.add("dragging");
+  delete li.dataset.dragged;
+  document.addEventListener("pointermove", onDragMove, { passive: false });
+  document.addEventListener("pointerup", onDragEnd, { once: true });
+}
+function getAfter(y) {
+  const els = [...taskList.querySelectorAll(".task-item:not(.dragging)")];
+  let res = null, min = Infinity;
+  for (const el of els) {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && Math.abs(offset) < min) { min = Math.abs(offset); res = el; }
   }
   return res;
 }
-
-// ===== Kimlik doğrulama =====
-async function signUp(email, password) {
-  const res = await fetch(`${AUTH}/signup`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.msg || data.error_description || "Kayıt başarısız");
-  // E-posta onayı kapalı olduğu için token doğrudan döner
-  if (!data.access_token) throw new Error("Kayıt tamam ama oturum açılamadı");
-  return data;
+function onDragMove(e) {
+  if (!dragEl) return;
+  e.preventDefault();
+  const after = getAfter(e.clientY);
+  if (after == null) taskList.appendChild(dragEl);
+  else if (after !== dragEl) taskList.insertBefore(dragEl, after);
+}
+function onDragEnd() {
+  if (!dragEl) return;
+  document.removeEventListener("pointermove", onDragMove);
+  const dk = dragEl.dataset.dk;
+  dragEl.classList.remove("dragging");
+  const el = dragEl; dragEl = null;
+  // sıralamayı kaydet
+  const ids = [...taskList.querySelectorAll(".task-item")].map((n) => n.dataset.id);
+  ids.forEach((id, idx) => { const t = todos.find((x) => x.id === id); if (t) t.order = idx; });
+  save();
+  // sürükleme sonrası tıklama ile düzenleme açılmasın
+  el.dataset.dragged = "1";
+  setTimeout(() => { delete el.dataset.dragged; }, 50);
 }
 
-async function signIn(email, password) {
-  const res = await fetch(`${AUTH}/token?grant_type=password`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok)
-    throw new Error(
-      data.error_description || data.msg || "E-posta veya şifre hatalı"
-    );
-  return data;
-}
-
-async function signOut() {
-  try {
-    await fetch(`${AUTH}/logout`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
-  } catch (_) {}
-  clearSession();
-  todos = [];
-  showAuth();
-}
-
-// ===== Ekran yönetimi =====
-function showAuth() {
-  authScreen.hidden = false;
-  appScreen.hidden = true;
-  authError.textContent = "";
-}
-
-function showApp() {
-  authScreen.hidden = true;
-  appScreen.hidden = false;
-  userEmailEl.textContent = session?.user?.email || "";
-  load();
-}
-
-function setAuthMode(mode) {
-  authMode = mode;
-  authError.textContent = "";
-  if (mode === "login") {
-    authSubmit.textContent = "Giriş Yap";
-    authSwitchText.textContent = "Hesabın yok mu?";
-    authSwitchBtn.textContent = "Kayıt ol";
-    authPassword.autocomplete = "current-password";
+/* =================== GÖRÜNÜM GEÇİŞİ =================== */
+function switchView(v) {
+  view = v;
+  viewDay.classList.toggle("hidden", v !== "day");
+  viewWeek.classList.toggle("hidden", v !== "week");
+  viewMonth.classList.toggle("hidden", v !== "month");
+  $("progress-card").classList.toggle("hidden", v !== "day");
+  document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
+  if (v === "day") renderDay();
+  else if (v === "week") {
+    headerTitle.textContent = "Bu hafta"; headerSub.textContent = "Haftanı gör";
+    renderWeek();
   } else {
-    authSubmit.textContent = "Kayıt Ol";
-    authSwitchText.textContent = "Zaten hesabın var mı?";
-    authSwitchBtn.textContent = "Giriş yap";
-    authPassword.autocomplete = "new-password";
+    headerTitle.textContent = "Takvim"; headerSub.textContent = "Ayını planla";
+    renderMonth();
   }
 }
 
-// ===== Görev REST işlemleri =====
-async function fetchTodos() {
-  const res = await apiFetch(`${REST}?select=*&order=inserted_at.asc`);
-  if (!res.ok) throw new Error(`Yükleme hatası: ${res.status}`);
-  return res.json();
+/* =================== EKLE / DÜZENLE PANELİ =================== */
+function setPriority(p) {
+  formPriority = p;
+  $("f-priority").querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.p === p));
 }
-
-async function createTodo(text) {
-  const res = await apiFetch(REST, {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ text }), // user_id sunucuda auth.uid() ile dolar
-  });
-  if (!res.ok) throw new Error(`Ekleme hatası: ${res.status}`);
-  const [row] = await res.json();
+function addSubRow(text = "", id = "") {
+  const row = document.createElement("div");
+  row.className = "sub-row";
+  row.dataset.sid = id || uid();
+  row.innerHTML = `<input type="text" placeholder="Alt görev..." /><button type="button" class="sub-del" aria-label="Kaldır">×</button>`;
+  row.querySelector("input").value = text;
+  row.querySelector(".sub-del").onclick = () => row.remove();
+  subListEl.appendChild(row);
   return row;
 }
-
-async function updateTodo(id, changes) {
-  const res = await apiFetch(`${REST}?id=eq.${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(changes),
-  });
-  if (!res.ok) throw new Error(`Güncelleme hatası: ${res.status}`);
-}
-
-async function deleteTodo(id) {
-  const res = await apiFetch(`${REST}?id=eq.${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`Silme hatası: ${res.status}`);
-}
-
-// ===== Arayüz =====
-function render() {
-  list.innerHTML = "";
-  const filtered = todos.filter((t) => {
-    if (filter === "active") return !t.done;
-    if (filter === "done") return t.done;
-    return true;
-  });
-
-  if (filtered.length === 0) {
-    const li = document.createElement("li");
-    li.className = "empty";
-    li.textContent = "Görev yok 🎉";
-    list.appendChild(li);
+function openSheet(task, occDate) {
+  form.reset();
+  subListEl.innerHTML = "";
+  currentOccDate = occDate || selectedKey;
+  closeMenu();
+  if (task) {
+    $("sheet-title").textContent = "Görevi düzenle";
+    $("task-id").value = task.id;
+    $("f-text").value = task.text;
+    $("f-date").value = task.date;
+    $("f-time").value = task.time || "";
+    $("f-note").value = task.note || "";
+    $("f-repeat").value = task.repeat;
+    setPriority(task.priority);
+    task.subtasks.forEach((s) => addSubRow(s.text, s.id));
+    $("delete-btn").classList.remove("hidden");
+    $("skip-btn").classList.toggle("hidden", task.repeat === "none");
+  } else {
+    $("sheet-title").textContent = "Yeni görev";
+    $("task-id").value = "";
+    $("f-date").value = currentOccDate;
+    $("f-repeat").value = "none";
+    setPriority("low");
+    $("delete-btn").classList.add("hidden");
+    $("skip-btn").classList.add("hidden");
   }
-
-  filtered.forEach((todo) => {
-    const li = document.createElement("li");
-    li.className = "todo-item" + (todo.done ? " done" : "");
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = todo.done;
-    checkbox.addEventListener("change", () => toggle(todo));
-
-    const span = document.createElement("span");
-    span.textContent = todo.text;
-
-    const del = document.createElement("button");
-    del.className = "delete";
-    del.innerHTML = "&times;";
-    del.addEventListener("click", () => remove(todo.id));
-
-    li.append(checkbox, span, del);
-    list.appendChild(li);
-  });
-
-  const active = todos.filter((t) => !t.done).length;
-  countEl.textContent = `${active} görev kaldı`;
+  backdrop.classList.remove("hidden");
+  sheet.classList.remove("hidden");
+  setTimeout(() => $("f-text").focus(), 250);
 }
+function closeSheet() { backdrop.classList.add("hidden"); sheet.classList.add("hidden"); }
 
-async function load() {
-  try {
-    todos = await fetchTodos();
-    render();
-  } catch (err) {
-    countEl.textContent = err.message;
-  }
+function refreshCurrent() { view === "week" ? renderWeek() : view === "month" ? renderMonth() : renderDay(); }
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.remove("hidden");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.add("hidden"), 1800);
 }
-
-async function addTodo(text) {
-  try {
-    const row = await createTodo(text);
-    todos.push(row);
-    render();
-  } catch (err) {
-    countEl.textContent = err.message;
-  }
-}
-
-async function toggle(todo) {
-  const newDone = !todo.done;
-  todo.done = newDone;
-  render();
-  try {
-    await updateTodo(todo.id, { done: newDone });
-  } catch (err) {
-    todo.done = !newDone;
-    render();
-    countEl.textContent = err.message;
-  }
-}
-
-async function remove(id) {
-  const backup = todos;
-  todos = todos.filter((t) => t.id !== id);
-  render();
-  try {
-    await deleteTodo(id);
-  } catch (err) {
-    todos = backup;
-    render();
-    countEl.textContent = err.message;
-  }
-}
-
-// ===== Olaylar =====
-authForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
-  if (!email || password.length < 6) {
-    authError.textContent = "Geçerli e-posta ve en az 6 karakter şifre girin.";
-    return;
-  }
-  authSubmit.disabled = true;
-  authError.textContent = "";
-  try {
-    const data =
-      authMode === "signup"
-        ? await signUp(email, password)
-        : await signIn(email, password);
-    saveSession(data);
-    authForm.reset();
-    showApp();
-  } catch (err) {
-    authError.textContent = err.message;
-  } finally {
-    authSubmit.disabled = false;
-  }
-});
-
-authSwitchBtn.addEventListener("click", () =>
-  setAuthMode(authMode === "login" ? "signup" : "login")
-);
-
-logoutBtn.addEventListener("click", signOut);
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
-  const text = input.value.trim();
+  const text = $("f-text").value.trim();
   if (!text) return;
-  addTodo(text);
-  input.value = "";
-  input.focus();
-});
+  const subs = [...subListEl.querySelectorAll(".sub-row")]
+    .map((r) => ({ id: r.dataset.sid, text: r.querySelector("input").value.trim() }))
+    .filter((s) => s.text);
+  const id = $("task-id").value;
+  const data = {
+    text,
+    date: $("f-date").value || todayKey(),
+    time: $("f-time").value,
+    note: $("f-note").value.trim(),
+    priority: formPriority,
+    repeat: $("f-repeat").value,
+    subtasks: subs,
+  };
 
-clearBtn.addEventListener("click", async () => {
-  const doneIds = todos.filter((t) => t.done).map((t) => t.id);
-  if (doneIds.length === 0) return;
-  try {
-    const res = await apiFetch(`${REST}?id=in.(${doneIds.join(",")})`, {
-      method: "DELETE",
-    });
-    if (!res.ok) throw new Error(`Silme hatası: ${res.status}`);
-    todos = todos.filter((t) => !t.done);
-    render();
-  } catch (err) {
-    countEl.textContent = err.message;
+  if (id) {
+    const t = todos.find((x) => x.id === id);
+    Object.assign(t, data);
+    showToast("Güncellendi ✓");
+  } else {
+    todos.push(normalize({ ...data, order: Date.now() }));
+    showToast("Görev eklendi ✓");
   }
+  save();
+  selectedKey = data.date;
+  monthCursor = parseKey(data.date);
+  weekCursor = startOfWeek(parseKey(data.date));
+  closeSheet();
+  refreshCurrent();
 });
 
-filterBtns.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    filterBtns.forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    filter = btn.dataset.filter;
-    render();
-  });
+$("add-sub").onclick = () => addSubRow().querySelector("input").focus();
+
+$("delete-btn").addEventListener("click", () => {
+  const id = $("task-id").value;
+  const t = todos.find((x) => x.id === id);
+  if (t && t.repeat !== "none" && !confirm("Bu tekrarlayan görevin tümü silinsin mi?")) return;
+  todos = todos.filter((x) => x.id !== id);
+  save(); closeSheet(); showToast("Silindi"); refreshCurrent();
 });
 
-// ===== Başlangıç =====
-setAuthMode("login");
-if (session?.access_token) {
-  showApp();
-} else {
-  showAuth();
+$("skip-btn").addEventListener("click", () => {
+  const id = $("task-id").value;
+  const t = todos.find((x) => x.id === id);
+  if (!t) return;
+  if (!t.skip.includes(currentOccDate)) t.skip.push(currentOccDate);
+  save(); closeSheet(); showToast("Bu gün atlandı"); refreshCurrent();
+});
+
+/* =================== MENÜ / YEDEK =================== */
+const menu = $("menu");
+function closeMenu() { menu.classList.add("hidden"); }
+$("menu-btn").onclick = (e) => { e.stopPropagation(); menu.classList.toggle("hidden"); };
+document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.target !== $("menu-btn")) closeMenu(); });
+
+$("export-btn").onclick = () => {
+  closeMenu();
+  const blob = new Blob([JSON.stringify(todos, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `planla-yedek-${todayKey()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast("Yedek indirildi 📤");
+};
+
+$("import-btn").onclick = () => { closeMenu(); $("import-file").click(); };
+$("import-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data)) throw new Error("Geçersiz dosya");
+      if (!confirm("İçe aktarılan veriler mevcut görevlerin yerini alacak. Devam edilsin mi?")) return;
+      todos = data.map(normalize);
+      save(); refreshCurrent(); showToast("Yedek yüklendi 📥");
+    } catch { showToast("Dosya okunamadı ✗"); }
+    finally { e.target.value = ""; }
+  };
+  reader.readAsText(file);
+});
+
+$("clear-all-btn").onclick = () => {
+  closeMenu();
+  if (!confirm("Tüm görevler silinsin mi? Bu işlem geri alınamaz.")) return;
+  todos = []; save(); refreshCurrent(); showToast("Her şey temizlendi");
+};
+
+/* =================== OLAY DİNLEYİCİLER =================== */
+$("fab").onclick = () => openSheet(null, selectedKey);
+$("cancel-btn").onclick = closeSheet;
+backdrop.onclick = closeSheet;
+
+$("f-priority").querySelectorAll(".seg-btn").forEach((b) => (b.onclick = () => setPriority(b.dataset.p)));
+document.querySelectorAll(".nav-btn").forEach((b) => (b.onclick = () => switchView(b.dataset.view)));
+
+$("day-filter").querySelectorAll(".seg-btn").forEach((b) =>
+  (b.onclick = () => {
+    $("day-filter").querySelectorAll(".seg-btn").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active"); dayFilter = b.dataset.f; renderTasks();
+  }));
+
+$("prev-month").onclick = () => { monthCursor.setMonth(monthCursor.getMonth() - 1); renderMonth(); };
+$("next-month").onclick = () => { monthCursor.setMonth(monthCursor.getMonth() + 1); renderMonth(); };
+$("prev-week").onclick = () => { weekCursor = addDays(weekCursor, -7); renderWeek(); };
+$("next-week").onclick = () => { weekCursor = addDays(weekCursor, 7); renderWeek(); };
+
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeMenu(); } });
+
+/* =================== TEMA =================== */
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  $("theme-btn").textContent = t === "dark" ? "☀️" : "🌙";
+  localStorage.setItem(THEME_KEY, t);
 }
+$("theme-btn").onclick = () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  applyTheme(cur === "dark" ? "light" : "dark");
+};
+applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+
+/* =================== BAŞLANGIÇ =================== */
+loadData();
+switchView("day");
