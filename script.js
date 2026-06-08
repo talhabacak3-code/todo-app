@@ -18,6 +18,15 @@ const DOW_LONG = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cuma
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 const REPEAT_LABEL = { daily: "Her gün", weekdays: "Hafta içi", weekly: "Her hafta", monthly: "Her ay" };
 
+/* Kategoriler */
+const CATS = {
+  is:        { label: "İş",        emoji: "💼", color: "#3b82f6" },
+  kisisel:   { label: "Kişisel",   emoji: "🌸", color: "#ec4899" },
+  egitim:    { label: "Eğitim",    emoji: "📚", color: "#06b6d4" },
+  alisveris: { label: "Alışveriş", emoji: "🛒", color: "#f97316" },
+  saglik:    { label: "Sağlık",    emoji: "🩺", color: "#10b981" },
+};
+
 const parseKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
 const isoDow = (date) => (date.getDay() + 6) % 7;           // Pazartesi = 0
 const addDays = (date, n) => { const d = new Date(date); d.setDate(d.getDate() + n); return d; };
@@ -40,6 +49,8 @@ const uid = () =>
 let todos = [];
 let selectedKey = todayKey();
 let dayFilter = "all";
+let catFilter = "all";
+let formCategory = "";
 let view = "day";
 let monthCursor = new Date();
 let weekCursor = startOfWeek(new Date());
@@ -55,6 +66,7 @@ function normalize(t) {
     time: t.time || "",
     note: t.note || "",
     priority: ["low", "med", "high"].includes(t.priority) ? t.priority : "low",
+    category: t.category && CATS[t.category] ? t.category : "",
     repeat: ["none","daily","weekdays","weekly","monthly"].includes(t.repeat) ? t.repeat : "none",
     order: typeof t.order === "number" ? t.order : Date.now() + Math.random(),
     subtasks: Array.isArray(t.subtasks) ? t.subtasks.map((s) => ({ id: s.id || uid(), text: s.text || "" })) : [],
@@ -138,6 +150,26 @@ function renderDayStrip() {
   if (active) active.scrollIntoView({ inline: "center", block: "nearest" });
 }
 
+function renderCatFilter() {
+  const el = $("cat-filter");
+  el.innerHTML = "";
+  const make = (key, label, color) => {
+    const b = document.createElement("button");
+    b.className = "cat-chip" + (catFilter === key ? " active" : "");
+    b.textContent = label;
+    if (catFilter === key && color) b.style.background = color;
+    b.onclick = () => { catFilter = key; renderCatFilter(); renderTasks(); };
+    el.appendChild(b);
+  };
+  make("all", "Tümü", "");
+  Object.entries(CATS).forEach(([k, c]) => make(k, `${c.emoji} ${c.label}`, c.color));
+}
+
+const catChip = (key) => {
+  const c = CATS[key];
+  return c ? `<span class="chip cat" style="color:${c.color};background:${c.color}22">${c.emoji} ${c.label}</span>` : "";
+};
+
 function buildTaskItem(t, dk) {
   const done = isDone(t, dk);
   const li = document.createElement("li");
@@ -154,6 +186,7 @@ function buildTaskItem(t, dk) {
       <div class="task-title"></div>
       <div class="task-meta">
         ${t.time ? `<span class="chip time">🕑 ${t.time}</span>` : ""}
+        ${catChip(t.category)}
         ${t.repeat !== "none" ? `<span class="chip repeat">🔁 ${REPEAT_LABEL[t.repeat]}</span>` : ""}
         ${subTotal ? `<span class="chip subs">☑ ${subDoneCount}/${subTotal}</span>` : ""}
       </div>
@@ -198,7 +231,7 @@ function buildTaskItem(t, dk) {
 }
 
 function renderTasks() {
-  const all = byKey(selectedKey);
+  const all = byKey(selectedKey).filter((t) => catFilter === "all" || t.category === catFilter);
   const list = all.filter((t) =>
     dayFilter === "active" ? !isDone(t, selectedKey)
     : dayFilter === "done" ? isDone(t, selectedKey) : true);
@@ -271,9 +304,9 @@ function renderWeek() {
         mini.className = `mini p-${t.priority}` + (done ? " done" : "");
         mini.innerHTML = `
           <input type="checkbox" class="check" style="width:20px;height:20px" ${done ? "checked" : ""}/>
-          <span class="m-title"></span>
+          <span class="m-title">${CATS[t.category] ? CATS[t.category].emoji + " " : ""}</span>
           ${t.time ? `<span class="m-time">${t.time}</span>` : ""}`;
-        mini.querySelector(".m-title").textContent = t.text;
+        mini.querySelector(".m-title").append(t.text);
         mini.querySelector(".check").addEventListener("click", (e) => {
           e.stopPropagation();
           mutState(t, k).done = !isDone(t, k);
@@ -386,6 +419,22 @@ function setPriority(p) {
   formPriority = p;
   $("f-priority").querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.p === p));
 }
+function buildCatPicker() {
+  const el = $("f-category");
+  el.innerHTML = "";
+  const make = (key, label, color) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "cat-opt" + (formCategory === key ? " active" : "");
+    b.textContent = label;
+    if (formCategory === key && color) b.style.background = color;
+    b.onclick = () => { formCategory = key; buildCatPicker(); };
+    el.appendChild(b);
+  };
+  make("", "Yok", "");
+  Object.entries(CATS).forEach(([k, c]) => make(k, `${c.emoji} ${c.label}`, c.color));
+}
+
 function addSubRow(text = "", id = "") {
   const row = document.createElement("div");
   row.className = "sub-row";
@@ -410,6 +459,7 @@ function openSheet(task, occDate) {
     $("f-note").value = task.note || "";
     $("f-repeat").value = task.repeat;
     setPriority(task.priority);
+    formCategory = task.category || ""; buildCatPicker();
     task.subtasks.forEach((s) => addSubRow(s.text, s.id));
     $("delete-btn").classList.remove("hidden");
     $("skip-btn").classList.toggle("hidden", task.repeat === "none");
@@ -419,6 +469,7 @@ function openSheet(task, occDate) {
     $("f-date").value = currentOccDate;
     $("f-repeat").value = "none";
     setPriority("low");
+    formCategory = ""; buildCatPicker();
     $("delete-btn").classList.add("hidden");
     $("skip-btn").classList.add("hidden");
   }
@@ -451,6 +502,7 @@ form.addEventListener("submit", (e) => {
     time: $("f-time").value,
     note: $("f-note").value.trim(),
     priority: formPriority,
+    category: formCategory,
     repeat: $("f-repeat").value,
     subtasks: subs,
   };
@@ -549,7 +601,74 @@ $("next-month").onclick = () => { monthCursor.setMonth(monthCursor.getMonth() + 
 $("prev-week").onclick = () => { weekCursor = addDays(weekCursor, -7); renderWeek(); };
 $("next-week").onclick = () => { weekCursor = addDays(weekCursor, 7); renderWeek(); };
 
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeMenu(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeMenu(); closePomo(); } });
+
+/* =================== POMODORO =================== */
+const POMO = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
+const POMO_KEY = "planla_pomo";
+let pomoMode = "focus";
+let pomoRemaining = POMO.focus;
+let pomoTimer = null;
+let pomoCount = (() => {
+  try { const d = JSON.parse(localStorage.getItem(POMO_KEY) || "null"); if (d && d.date === todayKey()) return d.count; } catch {}
+  return 0;
+})();
+function pomoSaveCount() { localStorage.setItem(POMO_KEY, JSON.stringify({ date: todayKey(), count: pomoCount })); }
+const pomoFmt = (s) => `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+
+function pomoRender() {
+  $("pomo-time").textContent = pomoFmt(pomoRemaining);
+  const C = 326.7;
+  $("pring-fg").style.strokeDashoffset = C * (1 - pomoRemaining / POMO[pomoMode]);
+  $("pomo-toggle").textContent = pomoTimer ? "Duraklat" : "Başlat";
+  $("pomo-count").textContent = `Bugün ${pomoCount} odak seansı 🍅`;
+  $("pomo").classList.toggle("break", pomoMode !== "focus");
+}
+function pomoStop() { if (pomoTimer) { clearInterval(pomoTimer); pomoTimer = null; } }
+function pomoSetMode(m) {
+  pomoStop();
+  pomoMode = m; pomoRemaining = POMO[m];
+  $("pomo-modes").querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.m === m));
+  pomoRender();
+}
+function pomoBeep() {
+  try {
+    const a = new (window.AudioContext || window.webkitAudioContext)();
+    const o = a.createOscillator(), g = a.createGain();
+    o.connect(g); g.connect(a.destination); o.type = "sine"; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.001, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.3, a.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.7);
+    o.start(); o.stop(a.currentTime + 0.7);
+  } catch {}
+}
+function pomoTick() {
+  pomoRemaining--;
+  if (pomoRemaining <= 0) {
+    pomoStop(); pomoBeep();
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    if (pomoMode === "focus") {
+      pomoCount++; pomoSaveCount();
+      showToast("Odak tamamlandı! Mola zamanı ☕");
+      pomoSetMode(pomoCount % 4 === 0 ? "long" : "short");
+    } else {
+      showToast("Mola bitti! Hadi devam 💪");
+      pomoSetMode("focus");
+    }
+    return;
+  }
+  pomoRender();
+}
+function pomoStart() { if (pomoTimer) return; pomoTimer = setInterval(pomoTick, 1000); pomoRender(); }
+
+function openPomo() { closeMenu(); $("pomo-backdrop").classList.remove("hidden"); $("pomo").classList.remove("hidden"); pomoRender(); }
+function closePomo() { $("pomo-backdrop").classList.add("hidden"); $("pomo").classList.add("hidden"); }
+$("pomo-btn").onclick = openPomo;
+$("pomo-close").onclick = closePomo;
+$("pomo-backdrop").onclick = closePomo;
+$("pomo-toggle").onclick = () => { pomoTimer ? pomoStop() : pomoStart(); pomoRender(); };
+$("pomo-reset").onclick = () => pomoSetMode(pomoMode);
+$("pomo-modes").querySelectorAll(".seg-btn").forEach((b) => (b.onclick = () => pomoSetMode(b.dataset.m)));
 
 /* =================== TEMA =================== */
 function applyTheme(t) {
@@ -565,4 +684,5 @@ applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme
 
 /* =================== BAŞLANGIÇ =================== */
 loadData();
+renderCatFilter();
 switchView("day");

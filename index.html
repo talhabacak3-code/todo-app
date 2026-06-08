@@ -22,6 +22,7 @@
           </div>
         </div>
         <div class="header-actions">
+          <button class="icon-btn" id="pomo-btn" aria-label="Pomodoro">🍅</button>
           <button class="icon-btn" id="theme-btn" aria-label="Tema değiştir">🌙</button>
           <div class="menu-wrap">
             <button class="icon-btn" id="menu-btn" aria-label="Menü">⋯</button>
@@ -53,6 +54,7 @@
     <!-- GÜN VIEW -->
     <main class="view" id="view-day">
       <div class="day-strip" id="day-strip"></div>
+      <div class="cat-filter" id="cat-filter"></div>
       <div class="section-bar">
         <h2 id="day-heading">Bugün</h2>
         <div class="seg" id="day-filter">
@@ -129,6 +131,11 @@
         </div>
       </label>
 
+      <div class="field">
+        <span>Kategori</span>
+        <div class="cat-picker" id="f-category"></div>
+      </div>
+
       <label class="field">
         <span>Tekrar</span>
         <select id="f-repeat">
@@ -158,6 +165,30 @@
         <button type="submit" class="btn-primary">Kaydet</button>
       </div>
     </form>
+  </div>
+
+  <!-- POMODORO -->
+  <div class="modal-backdrop hidden" id="pomo-backdrop"></div>
+  <div class="pomo hidden" id="pomo">
+    <button class="pomo-close" id="pomo-close" aria-label="Kapat">×</button>
+    <h3>🍅 Pomodoro</h3>
+    <div class="seg pomo-modes" id="pomo-modes">
+      <button type="button" class="seg-btn active" data-m="focus">Odak</button>
+      <button type="button" class="seg-btn" data-m="short">Kısa mola</button>
+      <button type="button" class="seg-btn" data-m="long">Uzun mola</button>
+    </div>
+    <div class="pomo-ring">
+      <svg viewBox="0 0 120 120">
+        <circle class="pring-bg" cx="60" cy="60" r="52"></circle>
+        <circle class="pring-fg" id="pring-fg" cx="60" cy="60" r="52"></circle>
+      </svg>
+      <span class="pomo-time" id="pomo-time">25:00</span>
+    </div>
+    <div class="pomo-actions">
+      <button type="button" class="btn-primary" id="pomo-toggle">Başlat</button>
+      <button type="button" class="btn-ghost" id="pomo-reset">Sıfırla</button>
+    </div>
+    <p class="pomo-count" id="pomo-count">Bugün 0 odak seansı 🍅</p>
   </div>
 
   <input type="file" id="import-file" accept="application/json,.json" hidden />
