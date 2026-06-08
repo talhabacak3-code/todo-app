@@ -166,8 +166,7 @@ body {
 .day-pill.active.today .dnum { color: #fff; }
 
 /* ===== CATEGORY FILTER ===== */
-.cat-filter { display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 14px; scrollbar-width: none; }
-.cat-filter::-webkit-scrollbar { display: none; }
+.cat-filter { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 0 14px; }
 .cat-chip {
   flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface);
   color: var(--text-soft); font-family: inherit; font-weight: 600; font-size: 0.8rem;
