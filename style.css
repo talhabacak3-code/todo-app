@@ -304,10 +304,32 @@ body {
 .cell.selected .count-badge { background: rgba(255,255,255,0.35); }
 .month-hint { text-align: center; color: var(--text-soft); font-size: 0.82rem; font-weight: 500; margin-top: 18px; }
 
+/* ===== NOT DEFTERİ ===== */
+.notes-list { columns: 2; column-gap: 10px; }
+.note-card {
+  break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 10px;
+  border: 1px solid var(--border); border-left: 4px solid var(--primary);
+  border-radius: var(--radius-sm); padding: 14px; cursor: pointer;
+  box-shadow: var(--shadow-sm); animation: fadeIn 0.3s ease; transition: transform 0.12s;
+}
+.note-card:active { transform: scale(0.98); }
+.note-card-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; word-break: break-word; }
+.note-card-body { font-size: 0.85rem; color: var(--text); line-height: 1.45; white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
+.note-card-date { font-size: 0.7rem; color: var(--text-soft); font-weight: 600; margin-top: 9px; }
+
+.note-colors { display: flex; gap: 10px; flex-wrap: wrap; }
+.note-color {
+  width: 32px; height: 32px; border-radius: 10px; cursor: pointer; border: 3px solid transparent;
+  transition: transform 0.15s;
+}
+.note-color:active { transform: scale(0.9); }
+.note-color.active { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface-solid) inset; }
+#note-body { min-height: 140px; }
+
 /* ===== BOTTOM NAV ===== */
 .bottom-nav {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 520px; padding: 10px 20px calc(10px + var(--safe-b));
+  width: 100%; max-width: 520px; padding: 10px 10px calc(10px + var(--safe-b));
   display: flex; align-items: center; justify-content: space-around;
   background: var(--surface); backdrop-filter: blur(18px);
   border-top: 1px solid var(--border); z-index: 10;
@@ -316,7 +338,7 @@ body {
   border: none; background: transparent; color: var(--text-soft);
   font-family: inherit; font-weight: 600; font-size: 0.7rem; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 6px 12px; border-radius: 12px; transition: color 0.2s;
+  padding: 6px 9px; border-radius: 12px; transition: color 0.2s;
 }
 .nav-btn .nav-ico { font-size: 1.2rem; filter: grayscale(0.4); transition: filter 0.2s; }
 .nav-btn.active { color: var(--primary-deep); }

@@ -91,6 +91,14 @@ function loadData() {
 }
 function save() { localStorage.setItem(STORE_KEY, JSON.stringify(todos)); }
 
+/* ---------- Notlar ---------- */
+const NOTES_KEY = "planla_notes";
+const NOTE_COLORS = ["#a78bfa", "#f9a8d4", "#fbbf24", "#34d399", "#60a5fa", "#fb7185"];
+let notes = [];
+let formNoteColor = NOTE_COLORS[0];
+try { notes = JSON.parse(localStorage.getItem(NOTES_KEY)) || []; } catch { notes = []; }
+function saveNotes() { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); }
+
 /* ---------- Tekrar + durum mantığı ---------- */
 function occursOn(t, dk) {
   if (dk < t.date) return false;
@@ -123,7 +131,7 @@ function byKey(dk) {
 
 /* ---------- DOM ---------- */
 const $ = (id) => document.getElementById(id);
-const viewDay = $("view-day"), viewWeek = $("view-week"), viewMonth = $("view-month");
+const viewDay = $("view-day"), viewWeek = $("view-week"), viewMonth = $("view-month"), viewNotes = $("view-notes");
 const taskList = $("task-list"), dayStrip = $("day-strip");
 const dayHeading = $("day-heading"), headerTitle = $("header-title"), headerSub = $("header-sub");
 const monthGrid = $("month-grid"), monthTitle = $("month-title");
@@ -402,12 +410,16 @@ function switchView(v) {
   viewDay.classList.toggle("hidden", v !== "day");
   viewWeek.classList.toggle("hidden", v !== "week");
   viewMonth.classList.toggle("hidden", v !== "month");
+  viewNotes.classList.toggle("hidden", v !== "notes");
   $("progress-card").classList.toggle("hidden", v !== "day");
   document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === v));
   if (v === "day") renderDay();
   else if (v === "week") {
     headerTitle.textContent = "Bu hafta"; headerSub.textContent = "Haftanı gör";
     renderWeek();
+  } else if (v === "notes") {
+    headerTitle.textContent = "Not Defteri"; headerSub.textContent = "Aklındakileri yaz";
+    renderNotes();
   } else {
     headerTitle.textContent = "Takvim"; headerSub.textContent = "Ayını planla";
     renderMonth();
@@ -473,13 +485,19 @@ function openSheet(task, occDate) {
     $("delete-btn").classList.add("hidden");
     $("skip-btn").classList.add("hidden");
   }
+  $("note-sheet").classList.add("hidden");
   backdrop.classList.remove("hidden");
   sheet.classList.remove("hidden");
   setTimeout(() => $("f-text").focus(), 250);
 }
-function closeSheet() { backdrop.classList.add("hidden"); sheet.classList.add("hidden"); }
+function closeSheet() { backdrop.classList.add("hidden"); sheet.classList.add("hidden"); $("note-sheet").classList.add("hidden"); }
 
-function refreshCurrent() { view === "week" ? renderWeek() : view === "month" ? renderMonth() : renderDay(); }
+function refreshCurrent() {
+  if (view === "week") renderWeek();
+  else if (view === "month") renderMonth();
+  else if (view === "notes") renderNotes();
+  else renderDay();
+}
 
 function showToast(msg) {
   toast.textContent = msg;
@@ -541,6 +559,91 @@ $("skip-btn").addEventListener("click", () => {
   save(); closeSheet(); showToast("Bu gün atlandı"); refreshCurrent();
 });
 
+/* =================== NOT DEFTERİ =================== */
+function prettyDateTime(ts) {
+  const d = new Date(ts);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} · ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function renderNotes() {
+  const el = $("notes-list");
+  el.innerHTML = "";
+  if (!notes.length) {
+    el.style.columns = "1";
+    el.innerHTML = `<div class="empty-state"><span class="emo">📝</span><p>Henüz not yok</p></div>`;
+    return;
+  }
+  el.style.columns = "";
+  [...notes].sort((a, b) => b.updated - a.updated).forEach((n) => {
+    const card = document.createElement("div");
+    card.className = "note-card";
+    card.style.borderLeftColor = n.color;
+    card.style.background = n.color + "1f";
+    card.innerHTML = `
+      ${n.title ? `<div class="note-card-title"></div>` : ""}
+      <div class="note-card-body"></div>
+      <div class="note-card-date">${prettyDateTime(n.updated)}</div>`;
+    if (n.title) card.querySelector(".note-card-title").textContent = n.title;
+    card.querySelector(".note-card-body").textContent = n.body;
+    card.onclick = () => openNote(n);
+    el.appendChild(card);
+  });
+}
+function buildNoteColors() {
+  const el = $("note-colors");
+  el.innerHTML = "";
+  NOTE_COLORS.forEach((c) => {
+    const b = document.createElement("div");
+    b.className = "note-color" + (c === formNoteColor ? " active" : "");
+    b.style.background = c;
+    b.onclick = () => { formNoteColor = c; buildNoteColors(); };
+    el.appendChild(b);
+  });
+}
+function openNote(note) {
+  $("note-form").reset();
+  $("sheet").classList.add("hidden");
+  if (note) {
+    $("note-sheet-title").textContent = "Notu düzenle";
+    $("note-id").value = note.id;
+    $("note-title").value = note.title || "";
+    $("note-body").value = note.body || "";
+    formNoteColor = note.color || NOTE_COLORS[0];
+    $("note-delete").classList.remove("hidden");
+  } else {
+    $("note-sheet-title").textContent = "Yeni not";
+    $("note-id").value = "";
+    formNoteColor = NOTE_COLORS[0];
+    $("note-delete").classList.add("hidden");
+  }
+  buildNoteColors();
+  backdrop.classList.remove("hidden");
+  $("note-sheet").classList.remove("hidden");
+  setTimeout(() => $("note-body").focus(), 250);
+}
+$("note-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const title = $("note-title").value.trim();
+  const body = $("note-body").value.trim();
+  if (!title && !body) { closeSheet(); return; }
+  const id = $("note-id").value;
+  if (id) {
+    const n = notes.find((x) => x.id === id);
+    n.title = title; n.body = body; n.color = formNoteColor; n.updated = Date.now();
+    showToast("Not güncellendi ✓");
+  } else {
+    notes.push({ id: uid(), title, body, color: formNoteColor, updated: Date.now() });
+    showToast("Not eklendi ✓");
+  }
+  saveNotes(); closeSheet(); renderNotes();
+});
+$("note-cancel").onclick = closeSheet;
+$("note-delete").onclick = () => {
+  const id = $("note-id").value;
+  if (!confirm("Bu not silinsin mi?")) return;
+  notes = notes.filter((x) => x.id !== id);
+  saveNotes(); closeSheet(); showToast("Not silindi"); renderNotes();
+};
+
 /* =================== MENÜ / YEDEK =================== */
 const menu = $("menu");
 function closeMenu() { menu.classList.add("hidden"); }
@@ -549,7 +652,7 @@ document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.ta
 
 $("export-btn").onclick = () => {
   closeMenu();
-  const blob = new Blob([JSON.stringify(todos, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ version: 2, todos, notes }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `planla-yedek-${todayKey()}.json`;
@@ -566,9 +669,12 @@ $("import-file").addEventListener("change", (e) => {
   reader.onload = () => {
     try {
       const data = JSON.parse(reader.result);
-      if (!Array.isArray(data)) throw new Error("Geçersiz dosya");
-      if (!confirm("İçe aktarılan veriler mevcut görevlerin yerini alacak. Devam edilsin mi?")) return;
-      todos = data.map(normalize);
+      // Eski biçim: doğrudan görev dizisi. Yeni biçim: { todos, notes }
+      const newTodos = Array.isArray(data) ? data : data.todos;
+      if (!Array.isArray(newTodos)) throw new Error("Geçersiz dosya");
+      if (!confirm("İçe aktarılan veriler mevcut görev ve notların yerini alacak. Devam edilsin mi?")) return;
+      todos = newTodos.map(normalize);
+      if (!Array.isArray(data) && Array.isArray(data.notes)) { notes = data.notes; saveNotes(); }
       save(); refreshCurrent(); showToast("Yedek yüklendi 📥");
     } catch { showToast("Dosya okunamadı ✗"); }
     finally { e.target.value = ""; }
@@ -583,7 +689,7 @@ $("clear-all-btn").onclick = () => {
 };
 
 /* =================== OLAY DİNLEYİCİLER =================== */
-$("fab").onclick = () => openSheet(null, selectedKey);
+$("fab").onclick = () => (view === "notes" ? openNote(null) : openSheet(null, selectedKey));
 $("cancel-btn").onclick = closeSheet;
 backdrop.onclick = closeSheet;
 

@@ -92,12 +92,19 @@
       <p class="month-hint">Görev eklemek veya görmek için bir güne dokun</p>
     </main>
 
+    <!-- NOT DEFTERİ VIEW -->
+    <main class="view hidden" id="view-notes">
+      <div class="section-bar"><h2>Not Defteri</h2></div>
+      <div id="notes-list" class="notes-list"></div>
+    </main>
+
     <!-- ALT NAVIGASYON -->
     <nav class="bottom-nav">
       <button class="nav-btn active" data-view="day"><span class="nav-ico">📅</span><span>Gün</span></button>
       <button class="nav-btn" data-view="week"><span class="nav-ico">🗒️</span><span>Hafta</span></button>
-      <button class="fab" id="fab" aria-label="Görev ekle">+</button>
+      <button class="fab" id="fab" aria-label="Ekle">+</button>
       <button class="nav-btn" data-view="month"><span class="nav-ico">🗓️</span><span>Ay</span></button>
+      <button class="nav-btn" data-view="notes"><span class="nav-ico">📝</span><span>Not</span></button>
     </nav>
   </div>
 
@@ -164,6 +171,32 @@
         <button type="button" class="btn-ghost danger hidden" id="skip-btn">Bu günü atla</button>
         <button type="button" class="btn-ghost danger hidden" id="delete-btn">Sil</button>
         <button type="button" class="btn-ghost" id="cancel-btn">Vazgeç</button>
+        <button type="submit" class="btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- NOT EKLEME / DÜZENLEME PANELİ -->
+  <div class="sheet hidden" id="note-sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="note-sheet-title">Yeni not</h3>
+    <form id="note-form" class="sheet-form">
+      <input type="hidden" id="note-id" />
+      <label class="field">
+        <span>Başlık</span>
+        <input type="text" id="note-title" placeholder="Başlık (opsiyonel)" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>İçerik</span>
+        <textarea id="note-body" rows="8" placeholder="Notunu buraya yaz..."></textarea>
+      </label>
+      <div class="field">
+        <span>Renk</span>
+        <div class="note-colors" id="note-colors"></div>
+      </div>
+      <div class="sheet-actions">
+        <button type="button" class="btn-ghost danger hidden" id="note-delete">Sil</button>
+        <button type="button" class="btn-ghost" id="note-cancel">Vazgeç</button>
         <button type="submit" class="btn-primary">Kaydet</button>
       </div>
     </form>
