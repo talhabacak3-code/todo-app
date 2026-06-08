@@ -603,11 +603,23 @@ $("next-week").onclick = () => { weekCursor = addDays(weekCursor, 7); renderWeek
 
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeMenu(); closePomo(); } });
 
-/* =================== POMODORO =================== */
-const POMO = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
+/* =================== ÇALIŞMA TEKNİKLERİ (POMODORO & DİĞERLERİ) =================== */
+// Süreler dakika cinsinden. longEvery: kaç odaktan sonra uzun mola (0 = uzun mola yok).
+const TECHNIQUES = {
+  pomodoro:  { name: "🍅 Pomodoro",        focus: 25, short: 5,  long: 15, longEvery: 4, desc: "25 dk çalış, 5 dk mola. 4 turda bir 15 dk uzun mola." },
+  "5217":    { name: "⏱️ 52 / 17",          focus: 52, short: 17, long: 17, longEvery: 0, desc: "52 dk derin çalışma, 17 dk mola (DeskTime araştırması)." },
+  ultradian: { name: "🧠 90 / 20 Ultradyen", focus: 90, short: 20, long: 30, longEvery: 0, desc: "90 dk yoğun odak, 20 dk dinlenme (ultradyen ritim / derin çalışma)." },
+  "5010":    { name: "📚 50 / 10",          focus: 50, short: 10, long: 30, longEvery: 2, desc: "50 dk çalış, 10 dk mola. 2 turda bir 30 dk uzun mola." },
+  flowtime:  { name: "🌊 Flowtime",          focus: 0,  short: 5,  long: 15, longEvery: 0, flow: true, desc: "Sayaç ileri sayar; doğal olarak yorulunca molaya geç." },
+};
 const POMO_KEY = "planla_pomo";
-let pomoMode = "focus";
-let pomoRemaining = POMO.focus;
+const TECH_KEY = "planla_tech";
+
+let pomoTech = localStorage.getItem(TECH_KEY) || "pomodoro";
+if (!TECHNIQUES[pomoTech]) pomoTech = "pomodoro";
+let pomoMode = "focus";      // focus | short | long
+let pomoRemaining = 0;       // geri sayım modları için (sn)
+let pomoElapsed = 0;         // flowtime odak için ileri sayım (sn)
 let pomoTimer = null;
 let pomoCount = (() => {
   try { const d = JSON.parse(localStorage.getItem(POMO_KEY) || "null"); if (d && d.date === todayKey()) return d.count; } catch {}
@@ -616,21 +628,64 @@ let pomoCount = (() => {
 function pomoSaveCount() { localStorage.setItem(POMO_KEY, JSON.stringify({ date: todayKey(), count: pomoCount })); }
 const pomoFmt = (s) => `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 
-function pomoRender() {
-  $("pomo-time").textContent = pomoFmt(pomoRemaining);
-  const C = 326.7;
-  $("pring-fg").style.strokeDashoffset = C * (1 - pomoRemaining / POMO[pomoMode]);
-  $("pomo-toggle").textContent = pomoTimer ? "Duraklat" : "Başlat";
-  $("pomo-count").textContent = `Bugün ${pomoCount} odak seansı 🍅`;
-  $("pomo").classList.toggle("break", pomoMode !== "focus");
+const tech = () => TECHNIQUES[pomoTech];
+const techSec = (m) => tech()[m] * 60;
+const isFlowFocus = () => tech().flow && pomoMode === "focus";
+
+function pomoBuildTech() {
+  const sel = $("pomo-tech");
+  sel.innerHTML = "";
+  Object.entries(TECHNIQUES).forEach(([k, t]) => {
+    const o = document.createElement("option");
+    o.value = k; o.textContent = t.name; sel.appendChild(o);
+  });
+  sel.value = pomoTech;
 }
+
+function pomoRender() {
+  const C = 326.7;
+  if (isFlowFocus()) {
+    $("pomo-time").textContent = pomoFmt(pomoElapsed);
+    $("pring-fg").style.strokeDashoffset = C * (1 - (pomoElapsed % (25 * 60)) / (25 * 60));
+  } else {
+    $("pomo-time").textContent = pomoFmt(pomoRemaining);
+    $("pring-fg").style.strokeDashoffset = C * (1 - pomoRemaining / Math.max(1, techSec(pomoMode)));
+  }
+  $("pomo-toggle").textContent = pomoTimer ? "Duraklat" : (isFlowFocus() && pomoElapsed > 0 ? "Devam" : "Başlat");
+  $("pomo-count").textContent = `Bugün ${pomoCount} odak seansı 🍅`;
+  $("pomo-desc").textContent = tech().desc;
+  $("pomo").classList.toggle("break", pomoMode !== "focus");
+  $("pomo").classList.toggle("flow", isFlowFocus());
+  // sekme etiketleri + görünürlük
+  const f = tech();
+  const fb = $("pomo-modes").querySelector('[data-m="focus"]');
+  const sb = $("pomo-modes").querySelector('[data-m="short"]');
+  const lb = $("pomo-long");
+  fb.textContent = f.flow ? "Akış ∞" : `Odak · ${f.focus}dk`;
+  sb.textContent = `Mola · ${f.short}dk`;
+  lb.textContent = `Uzun · ${f.long}dk`;
+  lb.classList.toggle("hidden", f.longEvery === 0);
+  $("pomo-modes").querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.m === pomoMode));
+}
+
 function pomoStop() { if (pomoTimer) { clearInterval(pomoTimer); pomoTimer = null; } }
+
 function pomoSetMode(m) {
   pomoStop();
-  pomoMode = m; pomoRemaining = POMO[m];
-  $("pomo-modes").querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.m === m));
+  pomoMode = m;
+  pomoElapsed = 0;
+  pomoRemaining = techSec(m);
   pomoRender();
 }
+
+function pomoSetTech(k) {
+  if (!TECHNIQUES[k]) return;
+  pomoTech = k;
+  localStorage.setItem(TECH_KEY, k);
+  pomoBuildTech();
+  pomoSetMode("focus");
+}
+
 function pomoBeep() {
   try {
     const a = new (window.AudioContext || window.webkitAudioContext)();
@@ -642,33 +697,57 @@ function pomoBeep() {
     o.start(); o.stop(a.currentTime + 0.7);
   } catch {}
 }
+
+function pomoFinishFocus() {
+  pomoBeep();
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  pomoCount++; pomoSaveCount();
+  showToast("Odak tamamlandı! Mola zamanı ☕");
+  const f = tech();
+  pomoSetMode(f.longEvery > 0 && pomoCount % f.longEvery === 0 ? "long" : "short");
+}
+
 function pomoTick() {
+  if (isFlowFocus()) { pomoElapsed++; pomoRender(); return; }
   pomoRemaining--;
   if (pomoRemaining <= 0) {
-    pomoStop(); pomoBeep();
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    if (pomoMode === "focus") {
-      pomoCount++; pomoSaveCount();
-      showToast("Odak tamamlandı! Mola zamanı ☕");
-      pomoSetMode(pomoCount % 4 === 0 ? "long" : "short");
-    } else {
-      showToast("Mola bitti! Hadi devam 💪");
-      pomoSetMode("focus");
-    }
+    pomoStop();
+    if (pomoMode === "focus") { pomoFinishFocus(); }
+    else { pomoBeep(); if (navigator.vibrate) navigator.vibrate(200); showToast("Mola bitti! Hadi devam 💪"); pomoSetMode("focus"); }
     return;
   }
   pomoRender();
 }
 function pomoStart() { if (pomoTimer) return; pomoTimer = setInterval(pomoTick, 1000); pomoRender(); }
 
-function openPomo() { closeMenu(); $("pomo-backdrop").classList.remove("hidden"); $("pomo").classList.remove("hidden"); pomoRender(); }
+function openPomo() {
+  closeMenu();
+  pomoBuildTech();
+  $("pomo-backdrop").classList.remove("hidden");
+  $("pomo").classList.remove("hidden");
+  pomoRender();
+}
 function closePomo() { $("pomo-backdrop").classList.add("hidden"); $("pomo").classList.add("hidden"); }
+
 $("pomo-btn").onclick = openPomo;
 $("pomo-close").onclick = closePomo;
 $("pomo-backdrop").onclick = closePomo;
-$("pomo-toggle").onclick = () => { pomoTimer ? pomoStop() : pomoStart(); pomoRender(); };
+$("pomo-tech").onchange = (e) => pomoSetTech(e.target.value);
+$("pomo-toggle").onclick = () => {
+  // Flowtime odağında, ileri sayıyorken "molaya geç" daveti: yeterince çalışıldıysa seans say
+  pomoTimer ? pomoStop() : pomoStart();
+  pomoRender();
+};
 $("pomo-reset").onclick = () => pomoSetMode(pomoMode);
-$("pomo-modes").querySelectorAll(".seg-btn").forEach((b) => (b.onclick = () => pomoSetMode(b.dataset.m)));
+$("pomo-modes").querySelectorAll(".seg-btn").forEach((b) =>
+  (b.onclick = () => {
+    // Flowtime odağından molaya geçerken yeterli süre çalışıldıysa seansı say
+    if (isFlowFocus() && b.dataset.m !== "focus" && pomoElapsed >= 300) { pomoCount++; pomoSaveCount(); }
+    pomoSetMode(b.dataset.m);
+  }));
+
+// başlangıç süresi
+pomoRemaining = techSec("focus");
 
 /* =================== TEMA =================== */
 function applyTheme(t) {

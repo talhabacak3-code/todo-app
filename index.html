@@ -171,11 +171,13 @@
   <div class="modal-backdrop hidden" id="pomo-backdrop"></div>
   <div class="pomo hidden" id="pomo">
     <button class="pomo-close" id="pomo-close" aria-label="Kapat">×</button>
-    <h3>🍅 Pomodoro</h3>
+    <h3>Çalışma Tekniği</h3>
+    <select id="pomo-tech" class="pomo-tech"></select>
+    <p class="pomo-desc" id="pomo-desc"></p>
     <div class="seg pomo-modes" id="pomo-modes">
       <button type="button" class="seg-btn active" data-m="focus">Odak</button>
-      <button type="button" class="seg-btn" data-m="short">Kısa mola</button>
-      <button type="button" class="seg-btn" data-m="long">Uzun mola</button>
+      <button type="button" class="seg-btn" data-m="short">Mola</button>
+      <button type="button" class="seg-btn" id="pomo-long" data-m="long">Uzun</button>
     </div>
     <div class="pomo-ring">
       <svg viewBox="0 0 120 120">

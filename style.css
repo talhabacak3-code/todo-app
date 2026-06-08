@@ -377,7 +377,16 @@ body {
   width: 34px; height: 34px; border-radius: 11px; font-size: 1.3rem; line-height: 1;
   color: var(--text-soft); cursor: pointer;
 }
+.pomo-tech {
+  width: 100%; font-family: inherit; font-size: 0.95rem; font-weight: 600; color: var(--text);
+  background: var(--surface-soft); border: 1.5px solid transparent; border-radius: 13px;
+  padding: 12px 14px; outline: none; cursor: pointer; appearance: none; text-align: center; text-align-last: center;
+}
+.pomo-tech:focus { border-color: var(--primary); }
+.pomo-desc { font-size: 0.8rem; color: var(--text-soft); font-weight: 500; line-height: 1.4; margin: 10px 4px 18px; min-height: 2.3em; }
 .pomo-modes { width: 100%; margin-bottom: 22px; }
+.pomo.flow .pring-fg { stroke: var(--accent); animation: flowPulse 2s ease-in-out infinite; }
+@keyframes flowPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 .pomo-modes .seg-btn { flex: 1; }
 .pomo-ring { position: relative; width: 220px; height: 220px; margin: 0 auto 22px; }
 .pomo-ring svg { width: 220px; height: 220px; transform: rotate(-90deg); }
