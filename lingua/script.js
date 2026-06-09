@@ -584,18 +584,26 @@
   function renderReading(c) {
     const list = READINGS[state.lang] || [];
     c.innerHTML = "";
-    c.appendChild(el("h1", "page-title", "📖 Okuma"));
-    c.appendChild(el("p", "page-sub", "Seviyene uygun kısa hikayeler. Cümleye dokununca Türkçesi açılır."));
+    c.appendChild(el("h1", "page-title", "📖 Okuma Kitaplığı"));
+    c.appendChild(el("p", "page-sub", `Seviyene uygun ${list.length} hikâye. Cümleye dokununca Türkçesi açılır.`));
     if (!list.length) { c.appendChild(emptyBox("Bu dil için okuma metinleri yakında.")); return; }
-    const grid = el("div", "card-grid");
-    list.forEach((r) => {
+    const mkCard = (r) => {
       const done = prog().readDone.includes(r.id);
       const card = el("div", "card" + (done ? " complete" : ""));
       card.innerHTML = `<div class="c-top"><span class="c-icon">${r.cover}</span><div><h4>${r.title}</h4><span class="badge lvl">${r.level}</span></div></div><p>${r.desc}</p><div class="c-meta"><span class="badge">⏱ ${r.minutes} dk</span><span class="badge">${r.paragraphs.length} cümle</span></div>`;
       card.onclick = () => openReading(r);
-      grid.appendChild(card);
+      return card;
+    };
+    // seviyeye göre grupla
+    LEVELS.forEach((lvl) => {
+      const items = list.filter((r) => r.level === lvl);
+      if (!items.length) return;
+      const li = LEVEL_INFO[lvl];
+      c.appendChild(el("h3", "level-subhead", `<span style="color:${li.color}">${li.icon} ${lvl}</span> · ${li.name} <small style="color:var(--muted);font-weight:700">(${items.length} kitap)</small>`));
+      const grid = el("div", "card-grid");
+      items.forEach((r) => grid.appendChild(mkCard(r)));
+      c.appendChild(grid);
     });
-    c.appendChild(grid);
   }
   function openReading(r) {
     const c = $("#content"); c.scrollTop = 0;
