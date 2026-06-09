@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinguaWorld — Dil Öğrenme</title>
+  <meta name="description" content="İngilizce ve dünyanın en çok konuşulan dilleri: dersler, gramer, kitap okuma ve konuşma pratiği." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ===== ÜST BAR ===== -->
+  <header class="topbar">
+    <div class="brand" id="brandHome">
+      <span class="brand-logo">🌍</span>
+      <span class="brand-name">Lingua<b>World</b></span>
+    </div>
+
+    <div class="stats" id="topStats">
+      <button class="lang-switch" id="langSwitch" title="Dil değiştir">
+        <span id="curFlag">🇬🇧</span>
+        <span id="curLangName">İngilizce</span>
+        <span class="caret">▾</span>
+      </button>
+      <div class="stat streak" title="Seri">🔥 <b id="statStreak">0</b></div>
+      <div class="stat xp" title="Toplam XP">⭐ <b id="statXp">0</b></div>
+      <div class="stat hearts" title="Can">❤️ <b id="statHearts">5</b></div>
+    </div>
+  </header>
+
+  <!-- ===== ALT / YAN NAVİGASYON ===== -->
+  <nav class="sidenav">
+    <button class="nav-btn active" data-view="learn"><span>🎯</span><label>Öğren</label></button>
+    <button class="nav-btn" data-view="grammar"><span>📐</span><label>Gramer</label></button>
+    <button class="nav-btn" data-view="reading"><span>📖</span><label>Okuma</label></button>
+    <button class="nav-btn" data-view="speaking"><span>💬</span><label>Konuşma</label></button>
+    <button class="nav-btn" data-view="explore"><span>🌐</span><label>Diller</label></button>
+  </nav>
+
+  <!-- ===== ANA İÇERİK ===== -->
+  <main class="content" id="content"><!-- JS doldurur --></main>
+
+  <!-- ===== DERS / EGZERSİZ MODALI ===== -->
+  <div class="lesson-overlay" id="lessonOverlay" hidden>
+    <div class="lesson-screen">
+      <div class="lesson-head">
+        <button class="lesson-close" id="lessonClose">✕</button>
+        <div class="progress-track"><div class="progress-bar" id="lessonProgress"></div></div>
+        <div class="lesson-hearts">❤️ <b id="lessonHearts">5</b></div>
+      </div>
+      <div class="lesson-body" id="lessonBody"><!-- egzersiz --></div>
+      <div class="lesson-foot" id="lessonFoot">
+        <div class="feedback" id="lessonFeedback"></div>
+        <button class="btn-check" id="lessonCheck" disabled>KONTROL ET</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DİL SEÇİM MODALI ===== -->
+  <div class="lang-overlay" id="langOverlay" hidden>
+    <div class="lang-modal">
+      <h2>Bir dil seç</h2>
+      <p class="muted">İstediğin zaman değiştirebilirsin. İlerlemen her dil için ayrı kaydedilir.</p>
+      <div class="lang-grid" id="langGrid"></div>
+      <button class="btn-ghost" id="langCancel">Kapat</button>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
