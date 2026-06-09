@@ -1044,6 +1044,111 @@ $("pomo-modes").querySelectorAll(".seg-btn").forEach((b) =>
 pomoRemaining = techSec("focus");
 updatePill();
 
+/* =================== ODAK SESLERİ (Web Audio) =================== */
+const FOCUS_SOUNDS = {
+  off:   { label: "Kapalı",     icon: "🔇" },
+  brown: { label: "Derin",      icon: "🟤" },
+  white: { label: "Beyaz",      icon: "⚪" },
+  rain:  { label: "Yağmur",     icon: "🌧️" },
+  ocean: { label: "Okyanus",    icon: "🌊" },
+  drone: { label: "Derin odak", icon: "🧘" },
+};
+let audioCtx = null, soundNodes = null, soundMaster = null, currentSound = "off";
+let soundVolume = parseFloat(localStorage.getItem("planla_sound_vol") || "0.5");
+
+function ensureCtx() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    audioCtx = new AC();
+  }
+  return audioCtx;
+}
+function noiseBuffer(ctx, type) {
+  const len = ctx.sampleRate * 2;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  if (type === "brown") {
+    let last = 0;
+    for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+  } else {
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return buf;
+}
+function stopSound() {
+  if (!soundNodes) return;
+  soundNodes.forEach((n) => { try { n.stop && n.stop(); } catch {} try { n.disconnect && n.disconnect(); } catch {} });
+  soundNodes = null; soundMaster = null;
+}
+function setSound(key) {
+  const ctx = ensureCtx();
+  if (!ctx) { showToast("Tarayıcı sesi desteklemiyor"); return; }
+  if (ctx.state === "suspended") ctx.resume();
+  stopSound();
+  currentSound = key;
+  updateSoundUI();
+  if (key === "off") return;
+
+  const master = ctx.createGain(); master.gain.value = soundVolume; master.connect(ctx.destination);
+  soundMaster = master;
+  const nodes = [master];
+  const src = () => { const s = ctx.createBufferSource(); s.loop = true; return s; };
+
+  if (key === "white" || key === "brown") {
+    const s = src(); s.buffer = noiseBuffer(ctx, key);
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = key === "brown" ? 480 : 9000;
+    s.connect(lp); lp.connect(master); s.start(); nodes.push(s, lp);
+  } else if (key === "rain") {
+    const s = src(); s.buffer = noiseBuffer(ctx, "white");
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1200; bp.Q.value = 0.6;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 400;
+    s.connect(bp); bp.connect(hp); hp.connect(master); s.start(); nodes.push(s, bp, hp);
+  } else if (key === "ocean") {
+    const s = src(); s.buffer = noiseBuffer(ctx, "brown");
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 600;
+    const swell = ctx.createGain(); swell.gain.value = 0.55;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.12;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.4;
+    lfo.connect(lfoGain); lfoGain.connect(swell.gain); lfo.start();
+    s.connect(lp); lp.connect(swell); swell.connect(master); s.start(); nodes.push(s, lp, swell, lfo, lfoGain);
+  } else if (key === "drone") {
+    const merger = ctx.createChannelMerger(2);
+    const mk = (freq, ch) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq;
+      const g = ctx.createGain(); g.gain.value = 0.5; o.connect(g); g.connect(merger, 0, ch); o.start();
+      nodes.push(o, g);
+    };
+    mk(196, 0); mk(203, 1); // ~7Hz binaural (kulaklıkla en iyi)
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900;
+    merger.connect(lp); lp.connect(master); nodes.push(merger, lp);
+  }
+  soundNodes = nodes;
+}
+function buildSoundGrid() {
+  const el = $("sound-grid");
+  el.innerHTML = "";
+  Object.entries(FOCUS_SOUNDS).forEach(([k, s]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "fs-btn" + (k === currentSound ? " active" : "");
+    b.dataset.s = k;
+    b.innerHTML = `<span class="fs-ico">${s.icon}</span><span>${s.label}</span>`;
+    b.onclick = () => setSound(k);
+    el.appendChild(b);
+  });
+}
+function updateSoundUI() {
+  $("sound-grid").querySelectorAll(".fs-btn").forEach((b) => b.classList.toggle("active", b.dataset.s === currentSound));
+}
+$("sound-vol").value = soundVolume;
+$("sound-vol").addEventListener("input", (e) => {
+  soundVolume = parseFloat(e.target.value);
+  localStorage.setItem("planla_sound_vol", String(soundVolume));
+  if (soundMaster) soundMaster.gain.value = soundVolume;
+});
+buildSoundGrid();
+
 /* =================== TEMA =================== */
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);

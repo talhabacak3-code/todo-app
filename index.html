@@ -264,6 +264,15 @@
       <button type="button" class="btn-ghost" id="pomo-reset">Sıfırla</button>
     </div>
     <p class="pomo-count" id="pomo-count">Bugün 0 odak seansı 🍅</p>
+
+    <div class="focus-sound">
+      <div class="fs-head">🎧 Odak Sesi</div>
+      <div class="fs-grid" id="sound-grid"></div>
+      <div class="fs-vol-row">
+        <span>🔉</span>
+        <input type="range" id="sound-vol" class="fs-vol" min="0" max="1" step="0.01" value="0.5" />
+      </div>
+    </div>
   </div>
 
   <input type="file" id="import-file" accept="application/json,.json" hidden />
