@@ -345,8 +345,9 @@ body {
   flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 14px; text-align: center; box-shadow: var(--shadow-sm);
 }
-.tstat strong { display: block; font-size: 1.6rem; font-weight: 700; color: var(--primary-deep); }
-.tstat span { font-size: 0.76rem; color: var(--text-soft); font-weight: 600; }
+.tstat { padding: 13px 8px; }
+.tstat strong { display: block; font-size: 1.5rem; font-weight: 700; color: var(--primary-deep); }
+.tstat span { font-size: 0.72rem; color: var(--text-soft); font-weight: 600; }
 .tree-hint { text-align: center; color: var(--text-soft); font-size: 0.82rem; font-weight: 500; margin-top: 16px; }
 
 /* ===== NOT DEFTERİ ===== */

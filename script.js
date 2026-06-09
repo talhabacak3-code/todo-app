@@ -123,12 +123,35 @@ const STAGES = [
 ];
 let garden = (() => { try { return JSON.parse(localStorage.getItem(GARDEN_KEY)) || { points: 0 }; } catch { return { points: 0 }; } })();
 function saveGarden() { localStorage.setItem(GARDEN_KEY, JSON.stringify(garden)); }
+
+/* ---------- Seri (streak) ---------- */
+const STREAK_KEY = "planla_streak";
+let streak = (() => { try { return JSON.parse(localStorage.getItem(STREAK_KEY)) || { current: 0, best: 0, lastActiveDate: "" }; } catch { return { current: 0, best: 0, lastActiveDate: "" }; } })();
+function saveStreak() { localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); }
+// Bugün/dün aktifse seri yaşıyor; daha eskiyse görünüşte kırılmış (yeni tamamlamada baştan başlar)
+function streakCurrent() {
+  if (!streak.lastActiveDate) return 0;
+  const t = todayKey(), y = keyOf(addDays(parseKey(t), -1));
+  return streak.lastActiveDate === t || streak.lastActiveDate === y ? streak.current : 0;
+}
+function updateStreak() {
+  const t = todayKey();
+  if (streak.lastActiveDate === t) return;           // bugün zaten sayıldı
+  const y = keyOf(addDays(parseKey(t), -1));
+  streak.current = streak.lastActiveDate === y ? streak.current + 1 : 1;
+  streak.lastActiveDate = t;
+  streak.best = Math.max(streak.best || 0, streak.current);
+  saveStreak();
+  if ([3, 7, 14, 21, 30, 50, 100, 200, 365].includes(streak.current))
+    showToast(`🔥 ${streak.current} günlük seri! Zinciri kırma!`);
+}
 function treeStageIndex(p) { let idx = 0; for (let i = 0; i < STAGES.length; i++) if (p >= STAGES[i].min) idx = i; return idx; }
 function gardenAdd(n) {
   const before = treeStageIndex(garden.points);
   garden.points = Math.max(0, garden.points + n);
   saveGarden();
   const after = treeStageIndex(garden.points);
+  if (n > 0) updateStreak();
   if (n > 0 && after > before) showToast(`Ağacın büyüdü → ${STAGES[after].name} ${STAGES[after].emoji}`);
   if (view === "tree") renderTree();
 }
@@ -310,6 +333,8 @@ function renderProgress() {
     $("progress-title").textContent = `${done}/${all.length} tamamlandı`;
     $("progress-detail").textContent = `${all.length - done} görev kaldı`;
   }
+  const sc = streakCurrent();
+  if (sc > 0) $("progress-detail").textContent += ` · 🔥 ${sc} gün seri`;
 }
 
 function renderDay() {
@@ -655,6 +680,7 @@ function renderTree() {
   $("tree-canvas").innerHTML = buildTreeSVG(p);
   $("tree-points").textContent = p;
   $("tree-today").textContent = todayDoneCount();
+  $("tree-streak").textContent = streakCurrent();
   const next = STAGES[i + 1];
   if (next) {
     const prog = Math.max(0, Math.min(1, (p - st.min) / (next.min - st.min)));
@@ -664,6 +690,9 @@ function renderTree() {
     $("tree-bar").style.width = "100%";
     $("tree-info").textContent = "Ağacın tamamen büyüdü! 🎉 Böyle devam et.";
   }
+  $("tree-hint").textContent = streak.best > 0
+    ? `En uzun serin: ${streak.best} gün 🏆 · Her görev ağacını büyütür 🌱`
+    : "Her tamamladığın görev ağacını biraz daha büyütür 🌱";
 }
 
 /* =================== GÜNLÜK RUTİNLER =================== */
@@ -821,7 +850,7 @@ document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.ta
 
 $("export-btn").onclick = () => {
   closeMenu();
-  const blob = new Blob([JSON.stringify({ version: 2, todos, notes, garden, routines, routineState }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ version: 2, todos, notes, garden, routines, routineState, streak }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `planla-yedek-${todayKey()}.json`;
@@ -847,6 +876,7 @@ $("import-file").addEventListener("change", (e) => {
       if (!Array.isArray(data) && data.garden && typeof data.garden.points === "number") { garden = data.garden; saveGarden(); }
       if (!Array.isArray(data) && Array.isArray(data.routines)) { routines = data.routines; saveRoutines(); }
       if (!Array.isArray(data) && data.routineState && typeof data.routineState === "object") { routineState = data.routineState; saveRoutineState(); }
+      if (!Array.isArray(data) && data.streak && typeof data.streak.current === "number") { streak = data.streak; saveStreak(); }
       save(); refreshCurrent(); showToast("Yedek yüklendi 📥");
     } catch { showToast("Dosya okunamadı ✗"); }
     finally { e.target.value = ""; }
