@@ -3,7 +3,7 @@
    ========================================================================== */
 (function () {
   "use strict";
-  const { LANGUAGES, TOP_LANGUAGES_INFO, COURSES, GRAMMAR, READINGS, CONVERSATIONS } = window.DATA;
+  const { LANGUAGES, LEVELS, LEVEL_INFO, TOP_LANGUAGES_INFO, PLACEMENT, COURSES, GRAMMAR, READINGS, CONVERSATIONS } = window.DATA;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -28,9 +28,34 @@
   function save() { localStorage.setItem(SKEY, JSON.stringify(state)); }
   function prog() {
     if (!state.progress[state.lang]) {
-      state.progress[state.lang] = { lessonsDone: [], grammarDone: [], readDone: [], convDone: [], xp: 0 };
+      state.progress[state.lang] = { lessonsDone: [], grammarDone: [], readDone: [], convDone: [], xp: 0, startLevelIdx: 0, placed: null };
     }
-    return state.progress[state.lang];
+    const p = state.progress[state.lang];
+    if (p.startLevelIdx == null) p.startLevelIdx = 0; // eski kayıtlarla uyum
+    if (p.placed === undefined) p.placed = null;
+    return p;
+  }
+
+  /* ---------- SEVİYE / KİLİT MANTIĞI ---------- */
+  function levelLessonIds(level) {
+    const ids = [];
+    (COURSES[state.lang] || []).forEach((u) => { if (u.level === level) u.lessons.forEach((l) => ids.push(l.id)); });
+    return ids;
+  }
+  function levelComplete(level) {
+    const ids = levelLessonIds(level);
+    return ids.length > 0 && ids.every((id) => prog().lessonsDone.includes(id));
+  }
+  /* Açık olan en yüksek seviye indeksi: başlangıç seviyesi + tamamlananlar kadar ileri */
+  function unlockedLevelIdx() {
+    let idx = prog().startLevelIdx || 0;
+    while (idx < LEVELS.length - 1 && levelComplete(LEVELS[idx])) idx++;
+    return idx;
+  }
+  /* Dilde gerçekten içerik olan seviyeler (sıralı) */
+  function availableLevels() {
+    const set = new Set((COURSES[state.lang] || []).map((u) => u.level));
+    return LEVELS.filter((l) => set.has(l));
   }
 
   /* Günlük seri güncelle */
@@ -74,48 +99,201 @@
     const units = COURSES[state.lang] || [];
     const done = prog().lessonsDone;
     c.innerHTML = "";
-    c.appendChild(el("h1", "page-title", `${LANGUAGES[state.lang].flag} ${LANGUAGES[state.lang].name} Dersleri`));
-    c.appendChild(el("p", "page-sub", "Dersleri sırayla tamamla. Her ders XP kazandırır ve bir sonrakini açar."));
+    c.appendChild(el("h1", "page-title", `${LANGUAGES[state.lang].flag} ${LANGUAGES[state.lang].name}`));
+    c.appendChild(el("p", "page-sub", "Seviyene göre konu konu ilerle. Her seviye, bir öncekini tamamlayınca açılır."));
 
     if (!units.length) { c.appendChild(emptyBox("Bu dil için ders yakında eklenecek.")); return; }
 
-    // tüm derslerin düz listesi (kilit mantığı için)
-    const flat = [];
-    units.forEach((u) => u.lessons.forEach((l) => flat.push(l.id)));
+    const levels = availableLevels();
+    const unlockedIdx = unlockedLevelIdx();
 
-    units.forEach((u) => {
-      const box = el("section", "unit");
-      const head = el("div", "unit-head");
-      head.style.background = LANGUAGES[state.lang].color;
-      head.innerHTML = `<span class="u-icon">${u.icon}</span><div><h3>${u.title}</h3><p>${u.desc}</p></div>`;
-      box.appendChild(head);
+    /* --- Seviye tespit banner --- */
+    if (PLACEMENT[state.lang]) {
+      const p = prog();
+      const banner = el("div", "placement-banner");
+      if (p.placed) {
+        banner.innerHTML = `<div class="pb-left"><span class="pb-icon">🎯</span><div><b>Seviyen: ${p.placed}</b><span>${LEVEL_INFO[p.placed].name} — ${LEVEL_INFO[p.placed].desc}</span></div></div>`;
+        const btn = el("button", "pb-btn ghost", "Sınavı tekrar et");
+        btn.onclick = () => startPlacement();
+        banner.appendChild(btn);
+      } else {
+        banner.innerHTML = `<div class="pb-left"><span class="pb-icon">🎯</span><div><b>Seviyeni bilmiyor musun?</b><span>15 soruluk hızlı sınavla doğru seviyeden başla.</span></div></div>`;
+        const btn = el("button", "pb-btn", "Seviye Tespit Sınavı");
+        btn.onclick = () => startPlacement();
+        banner.appendChild(btn);
+      }
+      c.appendChild(banner);
+    }
 
-      const path = el("div", "lesson-path");
-      u.lessons.forEach((l) => {
-        const idx = flat.indexOf(l.id);
-        const isDone = done.includes(l.id);
-        const prevDone = idx === 0 || done.includes(flat[idx - 1]);
-        const locked = !isDone && !prevDone;
-        const isCurrent = !isDone && prevDone;
+    /* --- Seviye şeridi (A1 … C1) --- */
+    const strip = el("div", "level-strip");
+    levels.forEach((lvl, i) => {
+      const li = LEVEL_INFO[lvl];
+      const lockedLvl = i > unlockedIdx;
+      const completed = levelComplete(lvl);
+      const chip = el("button", "level-chip" + (lockedLvl ? " locked" : "") + (completed ? " done" : "") + (i === unlockedIdx && !completed ? " current" : ""));
+      chip.style.setProperty("--lc", li.color);
+      chip.innerHTML = `<span class="lc-icon">${lockedLvl ? "🔒" : li.icon}</span><b>${lvl}</b><small>${li.name}</small>`;
+      if (!lockedLvl) chip.onclick = () => { const t = document.getElementById("lvl-" + lvl); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      strip.appendChild(chip);
+    });
+    c.appendChild(strip);
 
-        const row = el("div", "node-row");
-        const btn = el("button", "lesson-node " + (isDone ? "done" : locked ? "locked" : "current") + (isCurrent ? " current" : ""));
-        btn.innerHTML = isDone ? `<span>${u.icon}</span><span class="crown">👑</span>` : locked ? "🔒" : "⭐";
-        btn.title = l.title;
-        if (!locked) btn.onclick = () => startLesson(u, l);
-        const wrap = el("div", "", "");
-        wrap.style.display = "flex";
-        wrap.style.flexDirection = "column";
-        wrap.style.alignItems = "center";
-        wrap.appendChild(btn);
-        wrap.appendChild(el("div", "node-label", l.title));
-        row.appendChild(wrap);
-        path.appendChild(row);
+    /* --- Seviye bölümleri --- */
+    levels.forEach((lvl, i) => {
+      const li = LEVEL_INFO[lvl];
+      const lockedLvl = i > unlockedIdx;
+      const lvlUnits = units.filter((u) => u.level === lvl);
+      const lvlIds = levelLessonIds(lvl);
+      const doneCount = lvlIds.filter((id) => done.includes(id)).length;
+
+      const section = el("section", "level-section" + (lockedLvl ? " locked" : ""));
+      section.id = "lvl-" + lvl;
+      const lh = el("div", "level-head");
+      lh.style.setProperty("--lc", li.color);
+      lh.innerHTML = `<span class="lh-icon">${li.icon}</span>
+        <div class="lh-text"><h2>${lvl} · ${li.name}</h2><p>${li.desc}</p></div>
+        <div class="lh-prog">${lockedLvl ? "🔒" : `${doneCount}/${lvlIds.length}`}</div>`;
+      section.appendChild(lh);
+
+      if (lockedLvl) {
+        const prevLvl = levels[i - 1];
+        section.appendChild(el("div", "lock-note", `🔒 Bu seviyeyi açmak için <b>${prevLvl}</b> seviyesini tamamla${PLACEMENT[state.lang] ? " ya da seviye tespit sınavına gir" : ""}.`));
+      }
+
+      // bu seviyedeki derslerin düz listesi (sıralı kilit için)
+      const flat = [];
+      lvlUnits.forEach((u) => u.lessons.forEach((l) => flat.push(l.id)));
+
+      lvlUnits.forEach((u) => {
+        const box = el("div", "unit");
+        const head = el("div", "unit-head");
+        head.style.background = li.color;
+        head.innerHTML = `<span class="u-icon">${u.icon}</span><div><h3>${u.title}</h3><p>${u.desc}</p></div>`;
+        box.appendChild(head);
+
+        const path = el("div", "lesson-path");
+        u.lessons.forEach((l) => {
+          const idx = flat.indexOf(l.id);
+          const isDone = done.includes(l.id);
+          const prevDone = idx === 0 || done.includes(flat[idx - 1]);
+          const locked = lockedLvl || (!isDone && !prevDone);
+          const isCurrent = !locked && !isDone;
+
+          const row = el("div", "node-row");
+          const btn = el("button", "lesson-node " + (isDone ? "done" : locked ? "locked" : "current") + (isCurrent ? " current" : ""));
+          btn.innerHTML = isDone ? `<span>${u.icon}</span><span class="crown">👑</span>` : locked ? "🔒" : "⭐";
+          btn.title = l.title;
+          if (!locked) btn.onclick = () => startLesson(u, l);
+          const wrap = el("div");
+          wrap.style.cssText = "display:flex;flex-direction:column;align-items:center";
+          wrap.appendChild(btn);
+          wrap.appendChild(el("div", "node-label", l.title));
+          row.appendChild(wrap);
+          path.appendChild(row);
+        });
+        box.appendChild(path);
+        section.appendChild(box);
       });
-      box.appendChild(path);
-      c.appendChild(box);
+      c.appendChild(section);
     });
   }
+
+  /* ====================================================================
+     SEVİYE TESPİT SINAVI
+     ==================================================================== */
+  let placeCtx = null;
+  function startPlacement() {
+    const qs = PLACEMENT[state.lang];
+    if (!qs) { toast("Bu dil için sınav yakında."); return; }
+    placeCtx = { qs: qs.slice(), i: 0, answers: {}, sel: null };
+    $("#placementOverlay").hidden = false;
+    renderPlacementQ();
+  }
+  function renderPlacementQ() {
+    const ctx = placeCtx;
+    ctx.sel = null;
+    const q = ctx.qs[ctx.i];
+    $("#placementProgress").style.width = (ctx.i / ctx.qs.length) * 100 + "%";
+    $("#placementCount").textContent = `${ctx.i + 1}/${ctx.qs.length}`;
+    $("#placementFeedback").textContent = "";
+    const next = $("#placementNext");
+    next.disabled = true; next.textContent = ctx.i + 1 >= ctx.qs.length ? "BİTİR" : "DEVAM";
+    const body = $("#placementBody");
+    body.innerHTML = "";
+    body.appendChild(el("div", "ex-instr", `Seviye tespit · Soru ${ctx.i + 1}`));
+    body.appendChild(el("div", "ex-q", q.q));
+    const wrap = el("div", "choices");
+    shuffle(q.options.slice()).forEach((opt) => {
+      const b = el("button", "choice", opt);
+      b.onclick = () => {
+        $$(".choice", wrap).forEach((x) => x.classList.remove("sel"));
+        b.classList.add("sel"); ctx.sel = opt; next.disabled = false;
+      };
+      wrap.appendChild(b);
+    });
+    body.appendChild(wrap);
+  }
+  function placementNext() {
+    const ctx = placeCtx;
+    if (ctx.sel == null) return;
+    ctx.answers[ctx.qs[ctx.i].id] = ctx.sel;
+    ctx.i++;
+    if (ctx.i >= ctx.qs.length) return finishPlacement();
+    renderPlacementQ();
+  }
+  function scorePlacement(qs, answers) {
+    // Her seviyede çoğunluğu doğruysa o seviyeyi "geçti" say; ilk düşülen seviyede dur.
+    let passedIdx = -1;
+    for (let i = 0; i < LEVELS.length; i++) {
+      const lvl = LEVELS[i];
+      const lq = qs.filter((q) => q.level === lvl);
+      if (!lq.length) continue;
+      const correct = lq.filter((q) => answers[q.id] === q.a).length;
+      if (correct / lq.length >= 0.6) passedIdx = i; else break;
+    }
+    return passedIdx; // -1 => A1'in altında
+  }
+  function finishPlacement() {
+    const ctx = placeCtx;
+    const qs = ctx.qs;
+    const passedIdx = scorePlacement(qs, ctx.answers);
+    const avail = availableLevels();
+    const availIdx = avail.map((l) => LEVELS.indexOf(l));
+    // Önerilen başlangıç: geçilen seviyenin bir üstü (ama mevcut içerikle sınırlı)
+    let startIdx = Math.min(Math.max(passedIdx + 1, 0), LEVELS.length - 1);
+    // mevcut seviyelere hizala (içeriği olmayan seviyeye yerleştirme)
+    const maxAvail = Math.max(...availIdx);
+    if (startIdx > maxAvail) startIdx = maxAvail;
+    const placedLevel = LEVELS[startIdx];
+    const totalCorrect = qs.filter((q) => ctx.answers[q.id] === q.a).length;
+
+    const p = prog();
+    p.startLevelIdx = startIdx;
+    p.placed = placedLevel;
+    save();
+
+    playTone(523, 0.1); setTimeout(() => playTone(784, 0.18), 130);
+    $("#placementProgress").style.width = "100%";
+    const li = LEVEL_INFO[placedLevel];
+    const body = $("#placementBody");
+    body.innerHTML = `
+      <div class="lesson-end">
+        <div class="big">${li.icon}</div>
+        <h2>Seviyen: ${placedLevel}</h2>
+        <p class="page-sub">${li.name} — ${li.desc}</p>
+        <div class="end-stats">
+          <div class="end-stat" style="color:${li.color}">${placedLevel}<small>Seviye</small></div>
+          <div class="end-stat" style="color:var(--green-d)">${totalCorrect}/${qs.length}<small>Doğru</small></div>
+        </div>
+        <p class="muted" style="font-weight:700">${placedLevel} ve altındaki seviyeler senin için açıldı. Konu konu ilerleyebilirsin.</p>
+      </div>`;
+    $("#placementFeedback").textContent = "";
+    const next = $("#placementNext");
+    next.textContent = "BU SEVİYEDEN BAŞLA"; next.disabled = false;
+    next.onclick = () => { next.onclick = placementNext; closePlacement(); };
+  }
+  function closePlacement() { $("#placementOverlay").hidden = true; placeCtx = null; renderStats(); setView("learn"); }
 
   /* ====================================================================
      DERS MOTORU
@@ -365,15 +543,23 @@
     c.appendChild(el("h1", "page-title", "📐 Gramer"));
     c.appendChild(el("p", "page-sub", "Konu anlatımları, tablolar ve örnek cümlelerle adım adım dilbilgisi."));
     if (!list.length) { c.appendChild(emptyBox("Bu dil için gramer konuları yakında.")); return; }
-    const grid = el("div", "card-grid");
-    list.forEach((g) => {
-      const done = prog().grammarDone.includes(g.id);
-      const card = el("div", "card" + (done ? " complete" : ""));
-      card.innerHTML = `<div class="c-top"><span class="c-icon">📘</span><div><h4>${g.title}</h4><span class="badge lvl">${g.level}</span></div></div><p>${g.summary}</p>`;
-      card.onclick = () => openGrammar(g);
-      grid.appendChild(card);
+    // seviyeye göre grupla
+    LEVELS.forEach((lvl) => {
+      const items = list.filter((g) => g.level === lvl);
+      if (!items.length) return;
+      const li = LEVEL_INFO[lvl];
+      const h = el("h3", "level-subhead", `<span style="color:${li.color}">${li.icon} ${lvl}</span> · ${li.name}`);
+      c.appendChild(h);
+      const grid = el("div", "card-grid");
+      items.forEach((g) => {
+        const done = prog().grammarDone.includes(g.id);
+        const card = el("div", "card" + (done ? " complete" : ""));
+        card.innerHTML = `<div class="c-top"><span class="c-icon">📘</span><div><h4>${g.title}</h4><span class="badge lvl">${g.level}</span></div></div><p>${g.summary}</p>`;
+        card.onclick = () => openGrammar(g);
+        grid.appendChild(card);
+      });
+      c.appendChild(grid);
     });
-    c.appendChild(grid);
   }
   function openGrammar(g) {
     const c = $("#content"); c.scrollTop = 0;
@@ -603,6 +789,8 @@
   $("#langOverlay").onclick = (e) => { if (e.target.id === "langOverlay") $("#langOverlay").hidden = true; };
   $("#lessonClose").onclick = () => { if (confirm("Dersten çıkmak istediğine emin misin? İlerlemen kaydedilmez.")) closeLesson(); };
   $("#lessonCheck").onclick = onCheck;
+  $("#placementNext").onclick = placementNext;
+  $("#placementClose").onclick = () => { if (confirm("Sınavdan çıkmak istediğine emin misin?")) closePlacement(); };
 
   /* ---------- BAŞLAT ---------- */
   renderStats();
